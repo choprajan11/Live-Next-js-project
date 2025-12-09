@@ -494,14 +494,24 @@ class DomainManager:
     def create_nginx_config(self, domain_name: str, site_id: str = None, port: int = 3000) -> Tuple[bool, str]:
         """Create Nginx configuration for the domain with SSL support"""
         try:
+            # Get email from environment
+            certbot_email = os.getenv('CERTBOT_EMAIL', os.getenv('ADMIN_EMAIL', 'admin@example.com'))
+            cloudflare_ini_path = os.getenv('CLOUDFLARE_INI_PATH', '/etc/letsencrypt/cloudflare.ini')
+            
             # Run certbot command to obtain SSL certificate
-            certbot_cmd = f'sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini -d {domain_name} -d "*.{domain_name}" --agree-tos -m you@your-email.com'
+            certbot_cmd = f'sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials {cloudflare_ini_path} -d {domain_name} -d "*.{domain_name}" --agree-tos --non-interactive -m {certbot_email}'
+            self._log_message(domain_name, f"Running certbot for SSL certificate...", "info", site_id)
+            
             try:
-                subprocess.run(certbot_cmd, shell=True, check=True)
+                result = subprocess.run(certbot_cmd, shell=True, check=True, capture_output=True, text=True)
                 self._log_message(domain_name, "SSL certificate obtained successfully", "success", site_id)
+                if result.stdout:
+                    self._log_message(domain_name, f"Certbot output: {result.stdout[:500]}", "info", site_id)
             except subprocess.CalledProcessError as e:
-                error_msg = f"Failed to obtain SSL certificate: {str(e)}"
+                error_output = e.stderr if e.stderr else str(e)
+                error_msg = f"Failed to obtain SSL certificate: {error_output[:500]}"
                 self._log_message(domain_name, error_msg, "error", site_id)
+                self._log_message(domain_name, "Tip: Check /etc/letsencrypt/cloudflare.ini exists with correct API token", "info", site_id)
                 raise Exception(error_msg)
 
             nginx_config = f'''# Connection upgrade mapping
