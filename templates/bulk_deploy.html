@@ -172,6 +172,29 @@ another.com,https://github.com/user/another.git"></textarea>
                                 <button type="button" onclick="selectNoSites()" class="text-xs text-gray-500 hover:underline">Clear</button>
                             </div>
                         </div>
+                        
+                        <!-- Search & Bulk Select -->
+                        <div class="mb-3 space-y-2">
+                            <div class="relative">
+                                <input type="text" id="site-search-input" 
+                                    class="w-full px-3 py-2 pl-8 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Search or paste domains (comma/newline separated)..."
+                                    oninput="handleSiteSearch(event)">
+                                <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400 text-sm"></i>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button type="button" onclick="selectPastedDomains()" 
+                                    class="flex-1 px-2 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100">
+                                    <i class="fas fa-clipboard-check mr-1"></i>Select Pasted
+                                </button>
+                                <button type="button" onclick="clearSiteSearch()" 
+                                    class="px-2 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">
+                                    <i class="fas fa-times mr-1"></i>Clear
+                                </button>
+                            </div>
+                            <p id="bulk-select-result" class="text-xs text-green-600 hidden"></p>
+                        </div>
+                        
                         <div id="site-checkboxes" class="max-h-48 overflow-y-auto space-y-1">
                             <!-- Sites loaded dynamically -->
                             <p class="text-sm text-gray-500">Loading sites...</p>
@@ -736,9 +759,11 @@ another.com,https://github.com/user/another.git"></textarea>
         }
 
         container.innerHTML = allSitesData.map(site => `
-            <label class="flex items-center p-1 hover:bg-white rounded cursor-pointer">
+            <label class="site-label flex items-center p-1 hover:bg-white rounded cursor-pointer transition-colors" 
+                   data-domain="${site.domain.toLowerCase()}">
                 <input type="checkbox" class="site-deploy-checkbox h-4 w-4 text-blue-600 rounded" 
-                       data-site-id="${site.id}" onchange="updateSelectedSitesCount()">
+                       data-site-id="${site.id}" data-domain="${site.domain.toLowerCase()}" 
+                       onchange="updateSelectedSitesCount()">
                 <span class="ml-2 text-sm text-gray-700">${site.domain}</span>
                 <span class="ml-auto text-xs ${site.IP_live_status ? 'text-green-600' : 'text-yellow-600'}">
                     ${site.IP_live_status ? '● Live' : '○ Pending'}
@@ -763,7 +788,13 @@ another.com,https://github.com/user/another.git"></textarea>
     }
 
     function selectAllSites() {
-        document.querySelectorAll('.site-deploy-checkbox').forEach(cb => cb.checked = true);
+        // Only select visible (not filtered out) checkboxes
+        document.querySelectorAll('.site-deploy-checkbox').forEach(cb => {
+            const label = cb.closest('label');
+            if (!label.classList.contains('hidden')) {
+                cb.checked = true;
+            }
+        });
         updateSelectedSitesCount();
     }
 
@@ -780,6 +811,170 @@ another.com,https://github.com/user/another.git"></textarea>
     function getSelectedSiteIds() {
         const checkboxes = document.querySelectorAll('.site-deploy-checkbox:checked');
         return Array.from(checkboxes).map(cb => cb.dataset.siteId);
+    }
+
+    // ==================== Site Search & Bulk Select ====================
+    
+    let searchDebounceTimer = null;
+    
+    function handleSiteSearch(event) {
+        const input = event.target.value.trim();
+        
+        // Clear previous timer
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        
+        // Debounce the search
+        searchDebounceTimer = setTimeout(() => {
+            // Check if it's a bulk paste (contains comma or newline)
+            if (input.includes(',') || input.includes('\n')) {
+                // It's a bulk paste - highlight matching sites
+                highlightBulkDomains(input);
+            } else {
+                // Single search - filter the list
+                filterSiteList(input);
+            }
+        }, 200);
+    }
+    
+    function filterSiteList(searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const resultEl = document.getElementById('bulk-select-result');
+        resultEl.classList.add('hidden');
+        
+        let visibleCount = 0;
+        document.querySelectorAll('.site-label').forEach(label => {
+            const domain = label.dataset.domain || '';
+            
+            if (!term || domain.includes(term)) {
+                label.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                label.classList.add('hidden');
+            }
+        });
+        
+        // Show count if filtering
+        if (term) {
+            resultEl.textContent = `Showing ${visibleCount} matching sites`;
+            resultEl.classList.remove('hidden');
+        }
+    }
+    
+    function highlightBulkDomains(input) {
+        // Parse domains from input (comma or newline separated)
+        const domains = input
+            .split(/[,\n]+/)
+            .map(d => d.trim().toLowerCase().replace(/^www\./, '')) // Remove www prefix
+            .filter(d => d.length > 0);
+        
+        if (domains.length === 0) return;
+        
+        // Show all sites first and remove previous highlights
+        document.querySelectorAll('.site-label').forEach(label => {
+            label.classList.remove('hidden', 'bg-yellow-100', 'border', 'border-yellow-300');
+        });
+        
+        // Highlight matching domains with a visual indicator
+        let matchCount = 0;
+        document.querySelectorAll('.site-label').forEach(label => {
+            const siteDomain = (label.dataset.domain || '').replace(/^www\./, '');
+            
+            // Check for exact match or partial match
+            const isMatch = domains.some(d => {
+                return siteDomain === d || 
+                       siteDomain.includes(d) || 
+                       d.includes(siteDomain);
+            });
+            
+            if (isMatch) {
+                label.classList.add('bg-yellow-100', 'border', 'border-yellow-300');
+                matchCount++;
+            }
+        });
+        
+        // Show result message
+        const resultEl = document.getElementById('bulk-select-result');
+        if (matchCount > 0) {
+            resultEl.textContent = `🔍 Found ${matchCount} matching domains. Click "Select Pasted" to select them.`;
+            resultEl.className = 'text-xs text-green-600';
+        } else {
+            resultEl.textContent = `⚠️ No matches found for ${domains.length} pasted domains`;
+            resultEl.className = 'text-xs text-yellow-600';
+        }
+        resultEl.classList.remove('hidden');
+    }
+    
+    function selectPastedDomains() {
+        const input = document.getElementById('site-search-input').value.trim();
+        
+        if (!input) {
+            showToast('Please paste domains first', 'error');
+            return;
+        }
+        
+        // Parse domains from input (comma, newline, or space separated)
+        const domains = input
+            .split(/[,\n\s]+/)
+            .map(d => d.trim().toLowerCase().replace(/^www\./, ''))
+            .filter(d => d.length > 2); // At least 3 chars for a valid domain
+        
+        if (domains.length === 0) {
+            showToast('No valid domains found', 'error');
+            return;
+        }
+        
+        // Select matching checkboxes
+        let selectedCount = 0;
+        let matchedDomains = [];
+        
+        document.querySelectorAll('.site-deploy-checkbox').forEach(cb => {
+            const siteDomain = (cb.dataset.domain || '').replace(/^www\./, '');
+            
+            // Check for exact or partial match
+            const matchedInput = domains.find(d => {
+                return siteDomain === d || 
+                       siteDomain.includes(d) || 
+                       d.includes(siteDomain);
+            });
+            
+            if (matchedInput) {
+                cb.checked = true;
+                selectedCount++;
+                matchedDomains.push(siteDomain);
+                // Highlight the selected one
+                cb.closest('label').classList.add('bg-green-100', 'border', 'border-green-300');
+                cb.closest('label').classList.remove('bg-yellow-100', 'border-yellow-300');
+            }
+        });
+        
+        updateSelectedSitesCount();
+        
+        // Find unmatched domains from input
+        const unmatchedCount = domains.length - selectedCount;
+        
+        // Show result
+        const resultEl = document.getElementById('bulk-select-result');
+        if (selectedCount > 0) {
+            resultEl.innerHTML = `✅ Selected <strong>${selectedCount}</strong> domains` + 
+                (unmatchedCount > 0 ? ` <span class="text-yellow-600">(${unmatchedCount} not found)</span>` : '');
+            resultEl.className = 'text-xs text-green-600';
+            showToast(`Selected ${selectedCount} domains`, 'success');
+        } else {
+            resultEl.textContent = `❌ No matching domains found in your sites`;
+            resultEl.className = 'text-xs text-red-600';
+            showToast('No matching domains found', 'error');
+        }
+        resultEl.classList.remove('hidden');
+    }
+    
+    function clearSiteSearch() {
+        document.getElementById('site-search-input').value = '';
+        document.getElementById('bulk-select-result').classList.add('hidden');
+        
+        // Show all sites and remove highlights
+        document.querySelectorAll('.site-label').forEach(label => {
+            label.classList.remove('hidden', 'bg-yellow-100', 'bg-green-100', 'border', 'border-yellow-300', 'border-green-300');
+        });
     }
 
     // Bulk deploy
