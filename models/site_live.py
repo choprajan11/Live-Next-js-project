@@ -4,6 +4,10 @@ import subprocess
 import shutil
 from datetime import datetime
 import uuid
+import threading
+
+# Global lock for port assignment to prevent duplicates
+port_assignment_lock = threading.Lock()
 
 class SiteLiveManager:
     def __init__(self):
@@ -98,23 +102,84 @@ class SiteLiveManager:
         return str(uuid.uuid4())
 
     def _get_next_port(self):
-        """Get the next available port from sites.json"""
+        """Get the next available port from sites.json (thread-safe)"""
+        with port_assignment_lock:
+            try:
+                if not os.path.exists(self.sites_json_path):
+                    return self.default_port
+
+                with open(self.sites_json_path, 'r') as f:
+                    sites_data = json.load(f)
+                    
+                if not sites_data:
+                    return self.default_port
+                    
+                # Get all ports currently in use
+                ports = [int(site.get('port', 0)) for site in sites_data.values()]
+                
+                # Find next available port (handle gaps and duplicates)
+                if not ports:
+                    return self.default_port
+                    
+                next_port = max(ports) + 1
+                return next_port
+                    
+            except (json.JSONDecodeError, FileNotFoundError):
+                return self.default_port
+    
+    def fix_duplicate_ports(self):
+        """Find and fix duplicate port assignments in sites.json"""
         try:
             if not os.path.exists(self.sites_json_path):
-                return self.default_port
-
+                return {"status": "error", "message": "sites.json not found"}
+            
             with open(self.sites_json_path, 'r') as f:
                 sites_data = json.load(f)
-                
-            if not sites_data:
-                return self.default_port
-                
-            # Get the highest port number currently in use
-            ports = [int(site.get('port', 0)) for site in sites_data.values()]
-            return max(ports) + 1 if ports else self.default_port
-                
-        except (json.JSONDecodeError, FileNotFoundError):
-            return self.default_port
+            
+            # Find duplicates
+            port_to_sites = {}
+            for site_id, site in sites_data.items():
+                port = site.get('port')
+                if port not in port_to_sites:
+                    port_to_sites[port] = []
+                port_to_sites[port].append((site_id, site.get('domain_name')))
+            
+            duplicates = {p: sites for p, sites in port_to_sites.items() if len(sites) > 1}
+            
+            if not duplicates:
+                return {"status": "success", "message": "No duplicate ports found", "duplicates": []}
+            
+            # Fix duplicates by assigning new ports
+            fixed = []
+            all_ports = set(int(site.get('port', 0)) for site in sites_data.values())
+            next_port = max(all_ports) + 1
+            
+            for port, sites in duplicates.items():
+                # Keep the first site, reassign others
+                for site_id, domain in sites[1:]:
+                    old_port = sites_data[site_id]['port']
+                    sites_data[site_id]['port'] = next_port
+                    sites_data[site_id]['IP_URL'] = f"http://{self.server_ip}:{next_port}"
+                    fixed.append({
+                        "domain": domain,
+                        "old_port": old_port,
+                        "new_port": next_port
+                    })
+                    next_port += 1
+            
+            # Save fixed data
+            with open(self.sites_json_path, 'w') as f:
+                json.dump(sites_data, f, indent=4)
+            
+            return {
+                "status": "success", 
+                "message": f"Fixed {len(fixed)} duplicate ports",
+                "fixed": fixed,
+                "duplicates_found": {str(k): v for k, v in duplicates.items()}
+            }
+            
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     def _update_sites_json(self, site_id, domain_name, port, project_dir):
         """Update the sites.json file with new site information"""

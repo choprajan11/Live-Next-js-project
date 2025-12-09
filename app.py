@@ -795,5 +795,52 @@ def api_bulk_logs(batch_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route("/api/v1/fix-ports", methods=["POST"])
+@login_required
+def api_fix_duplicate_ports():
+    """Find and fix duplicate port assignments"""
+    try:
+        result = site_manager.fix_duplicate_ports()
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/check-ports", methods=["GET"])
+@login_required  
+def api_check_duplicate_ports():
+    """Check for duplicate port assignments without fixing"""
+    try:
+        if not os.path.exists(site_manager.sites_json_path):
+            return jsonify({"status": "error", "message": "sites.json not found"}), 404
+        
+        with open(site_manager.sites_json_path, 'r') as f:
+            sites_data = json.load(f)
+        
+        # Find duplicates
+        port_to_sites = {}
+        for site_id, site in sites_data.items():
+            port = site.get('port')
+            if port not in port_to_sites:
+                port_to_sites[port] = []
+            port_to_sites[port].append({
+                "id": site_id,
+                "domain": site.get('domain_name'),
+                "status": "live" if site.get('IP_live_status') else "pending"
+            })
+        
+        duplicates = {str(p): sites for p, sites in port_to_sites.items() if len(sites) > 1}
+        
+        return jsonify({
+            "status": "success",
+            "total_sites": len(sites_data),
+            "duplicate_ports": len(duplicates),
+            "duplicates": duplicates
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5001, debug=True)
