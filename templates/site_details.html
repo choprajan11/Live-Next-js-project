@@ -70,35 +70,58 @@
                         <div class="grid grid-cols-1 gap-6">
                             <div class="border-b pb-4">
                                 <h3 class="text-sm font-medium text-gray-500">Domain</h3>
-                                <p class="mt-1 text-lg text-gray-900">
-                                    <i class="fas fa-link mr-2 text-gray-400"></i>
-                                    {{ site.domain_name }}
-                                </p>
+                                <div class="mt-1 flex items-center group">
+                                    <i class="fas fa-link mr-2 text-gray-400 flex-shrink-0"></i>
+                                    <a href="https://{{ site.domain_name }}" target="_blank" 
+                                       class="text-blue-600 hover:text-blue-800 hover:underline truncate max-w-full"
+                                       title="{{ site.domain_name }}">
+                                        {{ site.domain_name }}
+                                        <i class="fas fa-external-link-alt ml-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                    </a>
+                                </div>
                             </div>
                             <div class="border-b pb-4">
                                 <h3 class="text-sm font-medium text-gray-500">Local URL</h3>
-                                <p class="mt-1 text-lg text-gray-900">
-                                    <i class="fas fa-server mr-2 text-gray-400"></i>
-                                    {{ site.IP_URL }}
-                                </p>
+                                <div class="mt-1 flex items-center group">
+                                    <i class="fas fa-server mr-2 text-gray-400 flex-shrink-0"></i>
+                                    <a href="{{ site.IP_URL }}" target="_blank" 
+                                       class="text-blue-600 hover:text-blue-800 hover:underline truncate max-w-full"
+                                       title="{{ site.IP_URL }}">
+                                        {{ site.IP_URL }}
+                                        <i class="fas fa-external-link-alt ml-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                    </a>
+                                </div>
                             </div>
                             <div class="border-b pb-4">
                                 <h3 class="text-sm font-medium text-gray-500">Repository</h3>
-                                <p class="mt-1 text-lg text-gray-900">
-                                    <i class="fab fa-github mr-2 text-gray-400"></i>
-                                    {{ site.repo }}
-                                </p>
+                                <div class="mt-1 flex items-center group">
+                                    <i class="fab fa-github mr-2 text-gray-400 flex-shrink-0"></i>
+                                    <a href="{{ site.repo }}" target="_blank" 
+                                       class="text-blue-600 hover:text-blue-800 hover:underline truncate max-w-full"
+                                       title="{{ site.repo }}">
+                                        {{ site.repo }}
+                                        <i class="fas fa-external-link-alt ml-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                    </a>
+                                </div>
                             </div>
                             <div class="border-b pb-4">
                                 <h3 class="text-sm font-medium text-gray-500">Project Directory</h3>
-                                <p class="mt-1 text-lg text-gray-900">
-                                    <i class="fas fa-folder mr-2 text-gray-400"></i>
-                                    {{ site.project_dir }}
-                                </p>
+                                <div class="mt-1 flex items-center relative group">
+                                    <i class="fas fa-folder mr-2 text-gray-400 flex-shrink-0"></i>
+                                    <span class="text-gray-900 truncate max-w-full cursor-help" 
+                                          title="{{ site.project_dir }}">
+                                        {{ site.project_dir }}
+                                    </span>
+                                    <button onclick="copyToClipboard('{{ site.project_dir }}')" 
+                                            class="ml-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                            title="Copy path">
+                                        <i class="fas fa-copy text-sm"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <h3 class="text-sm font-medium text-gray-500">Added On</h3>
-                                <p class="mt-1 text-lg text-gray-900">
+                                <p class="mt-1 text-gray-900 flex items-center">
                                     <i class="far fa-clock mr-2 text-gray-400"></i>
                                     {{ site.created_at }}
                                 </p>
@@ -163,10 +186,10 @@
 
                             <!-- Update Domain (DNS + SSL) Button -->
                             <button id="updateDomainBtn" onclick="updateDomain('{{ site.id }}')"
-                                class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-4 focus:ring-orange-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
-                                <i id="updateDomainIcon" class="fas fa-cloud-upload-alt mr-3 text-lg text-orange-100"></i>
+                                class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-4 focus:ring-teal-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
+                                <i id="updateDomainIcon" class="fas fa-sync-alt mr-3 text-lg text-teal-100"></i>
                                 <span id="updateDomainText" class="font-semibold">Update Domain</span>
-                                <span class="ml-2 bg-orange-700/50 text-orange-50 text-xs px-2 py-1 rounded-full">DNS + SSL</span>
+                                <span class="ml-2 bg-teal-700/50 text-teal-50 text-xs px-2 py-1 rounded-full">DNS + SSL</span>
                                 <div id="updateDomainSpinner" class="hidden ml-2">
                                     <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -320,6 +343,20 @@ const domainStatus = document.getElementById('domain-status');
 const socket = io();
 const siteId = "{{ site.id }}";
 const domainName = "{{ site.domain_name }}";
+
+// Copy to clipboard helper
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // Show brief toast notification
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse';
+        toast.innerHTML = '<i class="fas fa-check mr-2"></i>Copied to clipboard!';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+    });
+}
 
 // Load existing log file content if available
 async function loadExistingLogs() {
