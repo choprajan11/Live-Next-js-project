@@ -419,10 +419,22 @@ class CloudflareClient:
             print(f"❌ Failed to delete DNS record: {str(e)}")
             return False
 
-    def update_or_create_a_records(self, zone_id: str, server_ip: str, domain_name: str) -> bool:
-        """Update existing A records or create new ones to point to the server IP"""
+    def update_or_create_a_records(self, zone_id: str, server_ip: str, domain_name: str, log_callback=None) -> Tuple[bool, List[str]]:
+        """
+        Update existing A records or create new ones to point to the server IP.
+        Returns: (success, list of log messages)
+        """
+        logs = []
+        
+        def log(msg):
+            print(msg)
+            logs.append(msg)
+            if log_callback:
+                log_callback(msg)
+        
         # Get existing A records
         existing_records = self.get_dns_records(zone_id, record_type='A')
+        log(f"Found {len(existing_records)} existing A records")
         
         # Records we need: @, www, *
         required_names = ['@', 'www', '*']
@@ -430,15 +442,21 @@ class CloudflareClient:
         
         for record in existing_records:
             name = record.get('name', '')
+            content = record.get('content', '')
             # Cloudflare returns full domain, convert to simple name
             if name == domain_name:
                 existing_names['@'] = record
+                log(f"  Found @ record: {content}")
             elif name == f'www.{domain_name}':
                 existing_names['www'] = record
+                log(f"  Found www record: {content}")
             elif name == f'*.{domain_name}':
                 existing_names['*'] = record
+                log(f"  Found * record: {content}")
         
         success = True
+        updated_count = 0
+        created_count = 0
         
         for name in required_names:
             record_data = {
@@ -451,32 +469,44 @@ class CloudflareClient:
             
             if name in existing_names:
                 existing = existing_names[name]
+                old_ip = existing.get('content')
                 # Check if IP is different
-                if existing.get('content') != server_ip:
-                    print(f"🔄 Updating A record for {name}: {existing.get('content')} → {server_ip}")
+                if old_ip != server_ip:
+                    log(f"🔄 Updating {name}: {old_ip} → {server_ip}")
                     if not self.update_dns_record(zone_id, existing['id'], record_data):
                         success = False
-                        print(f"❌ Failed to update A record for {name}")
+                        log(f"❌ FAILED to update A record for {name}")
                     else:
-                        print(f"✅ Updated A record for {name}")
+                        log(f"✅ Updated A record for {name}")
+                        updated_count += 1
                 else:
-                    print(f"✓ A record for {name} already points to {server_ip}")
+                    log(f"✓ {name} already points to {server_ip}")
             else:
                 # Create new record
-                print(f"➕ Creating A record for {name} → {server_ip}")
+                log(f"➕ Creating A record for {name} → {server_ip}")
                 url = f"{self.base_url}/zones/{zone_id}/dns_records"
                 try:
                     response = requests.post(url, headers=self.headers, json=record_data, timeout=30)
                     if not response.ok or not response.json().get('success'):
                         success = False
-                        print(f"❌ Failed to create A record for {name}")
+                        log(f"❌ FAILED to create A record for {name}")
+                        # Log the error response
+                        try:
+                            err = response.json()
+                            log(f"   Error: {err.get('errors', [])}")
+                        except:
+                            pass
                     else:
-                        print(f"✅ Created A record for {name}")
+                        log(f"✅ Created A record for {name}")
+                        created_count += 1
                 except Exception as e:
                     success = False
-                    print(f"❌ Error creating A record for {name}: {e}")
+                    log(f"❌ Error creating A record for {name}: {e}")
         
-        return success
+        # Summary
+        log(f"Summary: {updated_count} updated, {created_count} created, success={success}")
+        
+        return success, logs
 
 class DomainManager:
     def __init__(self):
@@ -791,8 +821,13 @@ server {{
                 
                 # Update or create A records to point to the correct server IP
                 self._log_message(domain_name, f"Checking A records to ensure they point to {self.server_ip}...", "info", site_id)
-                if not self.cloudflare.update_or_create_a_records(zone_id, self.server_ip, domain_name):
-                    self._log_message(domain_name, "Warning: Some A records may not have been updated", "warning", site_id)
+                a_record_success, a_record_logs = self.cloudflare.update_or_create_a_records(zone_id, self.server_ip, domain_name)
+                # Show detailed A record logs
+                for log_line in a_record_logs:
+                    status = "success" if "✅" in log_line or "✓" in log_line else ("error" if "❌" in log_line else "info")
+                    self._log_message(domain_name, log_line, status, site_id)
+                if not a_record_success:
+                    self._log_message(domain_name, "⚠️ Some A records may not have been updated", "warning", site_id)
                 else:
                     self._log_message(domain_name, f"A records verified/updated to point to {self.server_ip}", "success", site_id)
                 
@@ -929,7 +964,12 @@ server {{
             
             # Step 2: Update A records to point to server IP
             self._log_message(domain_name, f"Updating A records to point to {self.server_ip}...", "info", site_id)
-            if self.cloudflare.update_or_create_a_records(zone_id, self.server_ip, domain_name):
+            a_record_success, a_record_logs = self.cloudflare.update_or_create_a_records(zone_id, self.server_ip, domain_name)
+            # Show detailed A record logs
+            for log_line in a_record_logs:
+                status = "success" if "✅" in log_line or "✓" in log_line else ("error" if "❌" in log_line else "info")
+                self._log_message(domain_name, log_line, status, site_id)
+            if a_record_success:
                 self._log_message(domain_name, f"✅ A records updated to {self.server_ip}", "success", site_id)
             else:
                 self._log_message(domain_name, "⚠️ Some A records may not have been updated", "warning", site_id)
