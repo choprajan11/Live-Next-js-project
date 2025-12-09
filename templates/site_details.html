@@ -186,10 +186,11 @@
 
                             <!-- Update Domain (DNS + SSL) Button -->
                             <button id="updateDomainBtn" onclick="updateDomain('{{ site.id }}')"
-                                class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-4 focus:ring-teal-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
-                                <i id="updateDomainIcon" class="fas fa-sync-alt mr-3 text-lg text-teal-100"></i>
+                                class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg text-white transition-all duration-200 shadow-md hover:shadow-lg border-0"
+                                style="background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);">
+                                <i id="updateDomainIcon" class="fas fa-sync-alt mr-3 text-lg"></i>
                                 <span id="updateDomainText" class="font-semibold">Update Domain</span>
-                                <span class="ml-2 bg-teal-700/50 text-teal-50 text-xs px-2 py-1 rounded-full">DNS + SSL</span>
+                                <span class="ml-2 text-xs px-2 py-1 rounded-full" style="background: rgba(255,255,255,0.2);">DNS + SSL</span>
                                 <div id="updateDomainSpinner" class="hidden ml-2">
                                     <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -205,10 +206,11 @@
                             {% if site.status == 'live' or site.status == 'pending' %}
                                 <div class="relative group">
                                     <a href="/rebuild/{{ site.domain_name }}" onclick="console.log('Rebuild link clicked for domain: {{ site.domain_name }}');"
-                                        class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-navy-600 to-navy-700 text-white hover:from-navy-700 hover:to-navy-800 focus:outline-none focus:ring-4 focus:ring-navy-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
-                                        <i class="fas fa-sync-alt mr-3 text-lg text-navy-100"></i>
+                                        class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg text-white transition-all duration-200 shadow-md hover:shadow-lg border-0"
+                                        style="background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);">
+                                        <i class="fas fa-sync-alt mr-3 text-lg"></i>
                                         <span class="font-semibold">Rebuild Site</span>
-                                        <span class="ml-2 bg-navy-800/50 text-navy-50 text-xs px-2 py-1 rounded-full">Live Site Only</span>
+                                        <span class="ml-2 text-xs px-2 py-1 rounded-full" style="background: rgba(255,255,255,0.15);">Live Site Only</span>
                                     </a>
                                     <!-- Tooltip -->
                                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap shadow-lg z-10">
