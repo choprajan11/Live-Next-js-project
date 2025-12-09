@@ -80,18 +80,43 @@
                 <div class="p-4">
                     <!-- Tabs -->
                     <div class="border-b border-gray-200 mb-4">
-                        <nav class="-mb-px flex space-x-8">
-                            <button onclick="switchTab('json')" id="json-tab-btn" class="tab-btn border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        <nav class="-mb-px flex space-x-6">
+                            <button onclick="switchTab('csv')" id="csv-tab-btn" class="tab-btn border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                                CSV
+                            </button>
+                            <button onclick="switchTab('json')" id="json-tab-btn" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
                                 JSON
                             </button>
                             <button onclick="switchTab('github')" id="github-tab-btn" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
-                                GitHub Scan
+                                GitHub
                             </button>
                         </nav>
                     </div>
 
+                    <!-- CSV Tab -->
+                    <div id="csv-tab" class="tab-content">
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Upload CSV or Paste Content</label>
+                            <div class="mb-2">
+                                <input type="file" id="csv-file" accept=".csv" onchange="handleCsvFile(event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                            </div>
+                            <textarea id="import-csv" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-mono" placeholder="domain,repository_url
+example.com,https://github.com/user/repo.git
+another.com,https://github.com/user/another.git"></textarea>
+                            <p class="mt-1 text-xs text-gray-500">Format: CSV with <code class="bg-gray-100 px-1 rounded">domain</code> and <code class="bg-gray-100 px-1 rounded">repository_url</code> columns</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="previewCsv()" class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fas fa-eye mr-2"></i>Preview
+                            </button>
+                            <button onclick="importFromCsv()" class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                                <i class="fas fa-plus-circle mr-2"></i>Import CSV
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- JSON Tab -->
-                    <div id="json-tab" class="tab-content">
+                    <div id="json-tab" class="tab-content hidden">
                         <div class="mb-3">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Paste JSON Array</label>
                             <textarea id="import-json" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-mono" placeholder='[
@@ -332,6 +357,114 @@
         document.getElementById(tab + '-tab').classList.remove('hidden');
         document.getElementById(tab + '-tab-btn').classList.remove('border-transparent', 'text-gray-500');
         document.getElementById(tab + '-tab-btn').classList.add('border-blue-500', 'text-blue-600');
+    }
+
+    // CSV handling
+    function handleCsvFile(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('import-csv').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    function parseCsv(csvText) {
+        const lines = csvText.trim().split('\n');
+        if (lines.length < 2) {
+            throw new Error('CSV must have a header row and at least one data row');
+        }
+
+        // Parse header
+        const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+        
+        // Find column indices
+        const domainIdx = header.findIndex(h => h.includes('domain'));
+        const repoIdx = header.findIndex(h => h.includes('repo') || h.includes('repository'));
+        
+        if (domainIdx === -1 || repoIdx === -1) {
+            throw new Error('CSV must have "domain" and "repository_url" (or "repo") columns');
+        }
+
+        // Parse data rows
+        const sites = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // Simple CSV parsing (handles basic cases)
+            const cols = line.split(',').map(c => c.trim().replace(/['"]/g, ''));
+            
+            const domain = cols[domainIdx];
+            const repo = cols[repoIdx];
+            
+            if (domain && repo) {
+                sites.push({
+                    domain: domain.toLowerCase(),
+                    repo: repo,
+                    name: domain.split('.')[0] // Use first part of domain as name
+                });
+            }
+        }
+
+        return sites;
+    }
+
+    function previewCsv() {
+        const csvText = document.getElementById('import-csv').value.trim();
+        if (!csvText) {
+            showToast('Please paste CSV content or upload a file', 'error');
+            return;
+        }
+
+        try {
+            const sites = parseCsv(csvText);
+            showToast(`Found ${sites.length} sites in CSV`, 'success');
+            
+            // Show preview in JSON tab
+            document.getElementById('import-json').value = JSON.stringify(sites, null, 2);
+            switchTab('json');
+        } catch (e) {
+            showToast(`CSV Error: ${e.message}`, 'error');
+        }
+    }
+
+    async function importFromCsv() {
+        const csvText = document.getElementById('import-csv').value.trim();
+        if (!csvText) {
+            showToast('Please paste CSV content or upload a file', 'error');
+            return;
+        }
+
+        try {
+            const sites = parseCsv(csvText);
+            if (sites.length === 0) {
+                showToast('No valid sites found in CSV', 'error');
+                return;
+            }
+
+            showLoading();
+            const response = await fetch('/api/v1/bulk/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sites })
+            });
+
+            const result = await response.json();
+            hideLoading();
+            
+            if (result.status === 'success') {
+                showToast(`Imported: ${result.imported}, Skipped: ${result.skipped} (already exist)`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(`Error: ${result.message}`, 'error');
+            }
+        } catch (e) {
+            hideLoading();
+            showToast(`Error: ${e.message}`, 'error');
+        }
     }
 
     // Socket event listeners
