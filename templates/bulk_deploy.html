@@ -1,0 +1,649 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Deployment - Site Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1" style="color: #000;">Bulk Deployment</h1>
+            <p class="text-muted mb-0">Deploy multiple Next.js sites at once</p>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+            ← Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3">
+                            <i class="bi bi-clock text-warning fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-1">Pending</h6>
+                            <h3 class="mb-0" id="pending-count" style="color: #000;">{{ pending_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+                            <i class="bi bi-check-circle text-success fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-1">Live</h6>
+                            <h3 class="mb-0" id="live-count" style="color: #000;">{{ live_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                            <i class="bi bi-collection text-primary fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-1">Total</h6>
+                            <h3 class="mb-0" id="total-count" style="color: #000;">{{ total_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3">
+                            <i class="bi bi-cpu text-info fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="text-muted mb-1">Status</h6>
+                            <span class="badge" id="deployment-status-badge">
+                                {{ 'Running' if is_running else 'Idle' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: Controls -->
+        <div class="col-lg-5">
+            <!-- Import Sites Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0" style="color: #000;">
+                        <i class="bi bi-upload me-2"></i>Import Sites
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs mb-3" id="importTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-import" type="button">JSON</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="github-tab" data-bs-toggle="tab" data-bs-target="#github-import" type="button">GitHub Scan</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <!-- JSON Import -->
+                        <div class="tab-pane fade show active" id="json-import">
+                            <div class="mb-3">
+                                <label class="form-label" style="color: #000;">Paste JSON Array</label>
+                                <textarea class="form-control" id="import-json" rows="6" placeholder='[
+  {"domain": "example.com", "repo": "https://github.com/user/repo", "name": "Example Site"},
+  {"domain": "another.com", "repo": "https://github.com/user/another", "name": "Another Site"}
+]' style="font-family: monospace; font-size: 12px;"></textarea>
+                                <div class="form-text">Format: Array of objects with domain, repo, and name fields</div>
+                            </div>
+                            <button class="btn btn-primary" onclick="importFromJson()">
+                                <i class="bi bi-plus-circle me-1"></i>Import Sites
+                            </button>
+                        </div>
+                        <!-- GitHub Import -->
+                        <div class="tab-pane fade" id="github-import">
+                            <div class="mb-3">
+                                <label class="form-label" style="color: #000;">GitHub Personal Access Token</label>
+                                <input type="password" class="form-control" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
+                                <div class="form-text">Needs repo read access. <a href="https://github.com/settings/tokens/new" target="_blank">Create token</a></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" style="color: #000;">Username/Organization (optional)</label>
+                                <input type="text" class="form-control" id="github-username" placeholder="Leave empty for authenticated user">
+                            </div>
+                            <button class="btn btn-dark" onclick="scanGitHub()">
+                                <i class="bi bi-github me-1"></i>Scan for Next.js Repos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bulk Deploy Controls -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0" style="color: #000;">
+                        <i class="bi bi-rocket-takeoff me-2"></i>Deploy Controls
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" style="color: #000;">Sites to Deploy</label>
+                        <select class="form-select" id="deploy-filter">
+                            <option value="pending">Pending Sites Only ({{ pending_count }})</option>
+                            <option value="all">All Sites ({{ total_count }})</option>
+                            <option value="selected">Selected Sites</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="color: #000;">Parallel Workers</label>
+                        <select class="form-select" id="max-workers">
+                            <option value="1">1 (Sequential - Safest)</option>
+                            <option value="2">2 (Balanced)</option>
+                            <option value="3" selected>3 (Recommended)</option>
+                            <option value="5">5 (Fast - High RAM usage)</option>
+                        </select>
+                        <div class="form-text">More workers = faster but uses more RAM</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="deploy-local" checked>
+                            <label class="form-check-label" style="color: #000;">
+                                Deploy Locally (git clone, npm install, build, pm2)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="setup-domain">
+                            <label class="form-check-label" style="color: #000;">
+                                Setup Domain (Cloudflare, Nginx, SSL)
+                            </label>
+                        </div>
+                        <div class="form-text text-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Let's Encrypt rate limit: 50 certs/week
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success btn-lg" id="start-deploy-btn" onclick="startBulkDeploy()">
+                            <i class="bi bi-play-circle me-2"></i>Start Bulk Deployment
+                        </button>
+                        <button class="btn btn-danger" id="stop-deploy-btn" onclick="stopBulkDeploy()" style="display: none;">
+                            <i class="bi bi-stop-circle me-2"></i>Stop Deployment
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0" style="color: #000;">
+                        <i class="bi bi-download me-2"></i>Export Sites
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group w-100">
+                        <button class="btn btn-outline-secondary" onclick="exportSites('all')">All Sites</button>
+                        <button class="btn btn-outline-secondary" onclick="exportSites('pending')">Pending</button>
+                        <button class="btn btn-outline-secondary" onclick="exportSites('live')">Live</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Progress & Logs -->
+        <div class="col-lg-7">
+            <!-- Progress Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" style="color: #000;">
+                        <i class="bi bi-bar-chart me-2"></i>Deployment Progress
+                    </h5>
+                    <span class="badge bg-secondary" id="batch-id"></span>
+                </div>
+                <div class="card-body">
+                    <!-- Progress Bar -->
+                    <div class="mb-3">
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-success" id="progress-completed" style="width: 0%"></div>
+                            <div class="progress-bar bg-danger" id="progress-failed" style="width: 0%"></div>
+                            <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated" id="progress-inprogress" style="width: 0%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2 small">
+                            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Completed: <span id="progress-completed-count">0</span></span>
+                            <span class="text-danger"><i class="bi bi-x-circle me-1"></i>Failed: <span id="progress-failed-count">0</span></span>
+                            <span class="text-warning"><i class="bi bi-arrow-repeat me-1"></i>In Progress: <span id="progress-inprogress-count">0</span></span>
+                            <span class="text-muted"><i class="bi bi-clock me-1"></i>Pending: <span id="progress-pending-count">0</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Sites Status Table -->
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-hover" id="sites-progress-table">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="color: #000;">Domain</th>
+                                    <th style="color: #000;">Step</th>
+                                    <th style="color: #000;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sites-progress-body">
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">
+                                        No deployment in progress
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Card -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" style="color: #000;">
+                        <i class="bi bi-terminal me-2"></i>Deployment Logs
+                    </h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
+                        <i class="bi bi-trash me-1"></i>Clear
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="logs-container" class="bg-dark text-light p-3" style="height: 400px; overflow-y: auto; font-family: 'Fira Code', 'Monaco', monospace; font-size: 12px; white-space: pre-wrap;">
+                        <span class="text-muted">Waiting for deployment to start...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GitHub Scan Results Modal -->
+<div class="modal fade" id="githubResultsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="color: #000;">
+                    <i class="bi bi-github me-2"></i>Next.js Repositories Found
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="github-repos-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="importSelectedRepos()">
+                    <i class="bi bi-plus-circle me-1"></i>Import Selected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .progress {
+        border-radius: 10px;
+    }
+    .progress-bar {
+        transition: width 0.5s ease-in-out;
+    }
+    #logs-container::-webkit-scrollbar {
+        width: 8px;
+    }
+    #logs-container::-webkit-scrollbar-track {
+        background: #1a1a2e;
+    }
+    #logs-container::-webkit-scrollbar-thumb {
+        background: #4a4a6a;
+        border-radius: 4px;
+    }
+    .log-success { color: #22c55e; }
+    .log-error { color: #ef4444; }
+    .log-warning { color: #f59e0b; }
+    .log-info { color: #94a3b8; }
+    
+    #deployment-status-badge.bg-success { background-color: #22c55e !important; }
+    #deployment-status-badge.bg-warning { background-color: #f59e0b !important; }
+    #deployment-status-badge.bg-secondary { background-color: #6b7280 !important; }
+    
+    .status-completed { color: #22c55e; }
+    .status-failed { color: #ef4444; }
+    .status-in_progress { color: #f59e0b; }
+    .status-pending { color: #6b7280; }
+    .status-skipped { color: #8b5cf6; }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+    const socket = io();
+    let currentBatchId = null;
+
+    // Socket event listeners
+    socket.on('connect', () => {
+        console.log('Connected to server');
+        updateStatusBadge('Idle', 'secondary');
+    });
+
+    socket.on('bulk_progress_update', (data) => {
+        updateProgress(data.batch_id, data.progress);
+    });
+
+    socket.on('bulk_log_update', (data) => {
+        appendLog(data.log_entry, data.status);
+    });
+
+    function updateStatusBadge(text, color) {
+        const badge = document.getElementById('deployment-status-badge');
+        badge.textContent = text;
+        badge.className = `badge bg-${color}`;
+    }
+
+    function updateProgress(batchId, progress) {
+        currentBatchId = batchId;
+        document.getElementById('batch-id').textContent = `Batch: ${batchId}`;
+        
+        const summary = progress.summary || {};
+        const total = summary.total || 0;
+        const completed = summary.completed || 0;
+        const failed = summary.failed || 0;
+        const inProgress = summary.in_progress || 0;
+        const pending = summary.pending || 0;
+
+        // Update counts
+        document.getElementById('progress-completed-count').textContent = completed;
+        document.getElementById('progress-failed-count').textContent = failed;
+        document.getElementById('progress-inprogress-count').textContent = inProgress;
+        document.getElementById('progress-pending-count').textContent = pending;
+
+        // Update progress bars
+        if (total > 0) {
+            document.getElementById('progress-completed').style.width = `${(completed / total) * 100}%`;
+            document.getElementById('progress-failed').style.width = `${(failed / total) * 100}%`;
+            document.getElementById('progress-inprogress').style.width = `${(inProgress / total) * 100}%`;
+        }
+
+        // Update sites table
+        const tbody = document.getElementById('sites-progress-body');
+        tbody.innerHTML = '';
+        
+        const sites = progress.sites || {};
+        for (const [domain, info] of Object.entries(sites)) {
+            const statusClass = `status-${info.status}`;
+            const statusIcon = getStatusIcon(info.status);
+            tbody.innerHTML += `
+                <tr>
+                    <td style="color: #000;">${domain}</td>
+                    <td style="color: #000;">${info.step || '-'}</td>
+                    <td class="${statusClass}">${statusIcon} ${info.status}</td>
+                </tr>
+            `;
+        }
+    }
+
+    function getStatusIcon(status) {
+        const icons = {
+            'completed': '✅',
+            'failed': '❌',
+            'in_progress': '🔄',
+            'pending': '⏳',
+            'skipped': '⏭️'
+        };
+        return icons[status] || '•';
+    }
+
+    function appendLog(logEntry, status) {
+        const container = document.getElementById('logs-container');
+        if (container.querySelector('.text-muted')) {
+            container.innerHTML = '';
+        }
+        
+        const logClass = `log-${status}`;
+        container.innerHTML += `<div class="${logClass}">${escapeHtml(logEntry)}</div>`;
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function clearLogs() {
+        document.getElementById('logs-container').innerHTML = '<span class="text-muted">Logs cleared...</span>';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Import from JSON
+    async function importFromJson() {
+        const jsonText = document.getElementById('import-json').value.trim();
+        if (!jsonText) {
+            alert('Please enter JSON data');
+            return;
+        }
+
+        try {
+            const sites = JSON.parse(jsonText);
+            if (!Array.isArray(sites)) {
+                throw new Error('JSON must be an array');
+            }
+
+            const response = await fetch('/api/v1/bulk/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sites })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                alert(`Imported: ${result.imported}, Skipped: ${result.skipped}`);
+                location.reload();
+            } else {
+                alert(`Error: ${result.message}`);
+            }
+        } catch (e) {
+            alert(`Invalid JSON: ${e.message}`);
+        }
+    }
+
+    // GitHub scan
+    async function scanGitHub() {
+        const token = document.getElementById('github-token').value.trim();
+        const username = document.getElementById('github-username').value.trim();
+
+        if (!token) {
+            alert('Please enter a GitHub token');
+            return;
+        }
+
+        try {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Scanning...';
+
+            const response = await fetch('/api/v1/bulk/scan-github', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, username })
+            });
+
+            const result = await response.json();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-github me-1"></i>Scan for Next.js Repos';
+
+            if (result.status === 'success') {
+                displayGitHubResults(result.repos);
+            } else {
+                alert(`Error: ${result.message}`);
+            }
+        } catch (e) {
+            alert(`Error: ${e.message}`);
+        }
+    }
+
+    function displayGitHubResults(repos) {
+        const container = document.getElementById('github-repos-list');
+        if (repos.length === 0) {
+            container.innerHTML = '<p class="text-muted">No Next.js repositories found</p>';
+        } else {
+            container.innerHTML = repos.map((repo, i) => `
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="repo-${i}" 
+                           data-repo='${JSON.stringify(repo)}' checked>
+                    <label class="form-check-label" for="repo-${i}" style="color: #000;">
+                        <strong>${repo.name}</strong>
+                        <span class="text-muted ms-2">Next.js ${repo.next_version}</span>
+                        ${repo.private ? '<span class="badge bg-secondary ms-2">Private</span>' : ''}
+                    </label>
+                </div>
+            `).join('');
+        }
+        
+        new bootstrap.Modal(document.getElementById('githubResultsModal')).show();
+    }
+
+    async function importSelectedRepos() {
+        const checkboxes = document.querySelectorAll('#github-repos-list input:checked');
+        const sites = [];
+        
+        checkboxes.forEach(cb => {
+            const repo = JSON.parse(cb.dataset.repo);
+            sites.push({
+                domain: '', // User will need to set this
+                repo: repo.clone_url,
+                name: repo.name
+            });
+        });
+
+        // Show the JSON in the import textarea for user to edit domains
+        document.getElementById('import-json').value = JSON.stringify(sites, null, 2);
+        bootstrap.Modal.getInstance(document.getElementById('githubResultsModal')).hide();
+        
+        // Switch to JSON tab
+        document.getElementById('json-tab').click();
+        alert('Repos loaded! Please add domain names for each site, then click Import.');
+    }
+
+    // Bulk deploy
+    async function startBulkDeploy() {
+        const filter = document.getElementById('deploy-filter').value;
+        const workers = parseInt(document.getElementById('max-workers').value);
+        const deployLocal = document.getElementById('deploy-local').checked;
+        const setupDomain = document.getElementById('setup-domain').checked;
+
+        if (!deployLocal && !setupDomain) {
+            alert('Please select at least one action (Deploy Local or Setup Domain)');
+            return;
+        }
+
+        try {
+            document.getElementById('start-deploy-btn').style.display = 'none';
+            document.getElementById('stop-deploy-btn').style.display = 'block';
+            updateStatusBadge('Running', 'warning');
+
+            const response = await fetch('/api/v1/bulk/deploy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status_filter: filter,
+                    max_workers: workers,
+                    deploy_local: deployLocal,
+                    setup_domain: setupDomain
+                })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                currentBatchId = result.batch_id;
+                document.getElementById('batch-id').textContent = `Batch: ${result.batch_id}`;
+                appendLog(`Deployment started - Batch ID: ${result.batch_id}`, 'success');
+            } else {
+                alert(`Error: ${result.message}`);
+                resetDeployButtons();
+            }
+        } catch (e) {
+            alert(`Error: ${e.message}`);
+            resetDeployButtons();
+        }
+    }
+
+    async function stopBulkDeploy() {
+        if (!confirm('Are you sure you want to stop the deployment?')) return;
+
+        try {
+            const response = await fetch('/api/v1/bulk/stop', { method: 'POST' });
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                appendLog('Stop requested - waiting for current tasks to complete...', 'warning');
+            }
+        } catch (e) {
+            alert(`Error: ${e.message}`);
+        }
+    }
+
+    function resetDeployButtons() {
+        document.getElementById('start-deploy-btn').style.display = 'block';
+        document.getElementById('stop-deploy-btn').style.display = 'none';
+        updateStatusBadge('Idle', 'secondary');
+    }
+
+    // Export
+    async function exportSites(filter) {
+        try {
+            const response = await fetch(`/api/v1/bulk/export?filter=${filter}`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                const blob = new Blob([JSON.stringify(result.sites, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `sites_${filter}_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            } else {
+                alert(`Error: ${result.message}`);
+            }
+        } catch (e) {
+            alert(`Error: ${e.message}`);
+        }
+    }
+
+    // Poll for status updates (backup for WebSocket)
+    setInterval(async () => {
+        if (!currentBatchId) return;
+        
+        try {
+            const response = await fetch(`/api/v1/bulk/status?batch_id=${currentBatchId}`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                if (!result.is_running) {
+                    resetDeployButtons();
+                    updateStatusBadge('Completed', 'success');
+                }
+            }
+        } catch (e) {
+            console.error('Status poll error:', e);
+        }
+    }, 5000);
+</script>
+{% endblock %}
+

@@ -12,6 +12,7 @@ from flask_limiter.util import get_remote_address
 from models.site_live import SiteLiveManager
 from models.add_domain import DomainManager
 from models.rebuild_site import SiteRebuildManager
+from models.bulk_deploy import BulkDeploymentManager
 
 # Load environment variables
 load_dotenv()
@@ -66,6 +67,27 @@ def load_user(username):
 site_manager = SiteLiveManager()
 domain_manager = DomainManager()
 rebuild_manager = SiteRebuildManager()
+bulk_manager = BulkDeploymentManager()
+
+# Setup bulk manager callbacks for WebSocket updates
+def on_bulk_progress_update(batch_id, progress):
+    """Send bulk deployment progress updates through websocket"""
+    socketio.emit('bulk_progress_update', {
+        'batch_id': batch_id,
+        'progress': progress
+    })
+
+def on_bulk_log_update(batch_id, log_entry, status, site_name):
+    """Send bulk deployment log updates through websocket"""
+    socketio.emit('bulk_log_update', {
+        'batch_id': batch_id,
+        'log_entry': log_entry,
+        'status': status,
+        'site_name': site_name
+    })
+
+bulk_manager.on_progress_update = on_bulk_progress_update
+bulk_manager.on_log_update = on_bulk_log_update
 
 def send_log_update(site_id, log_data):
     """Send log updates through websocket"""
@@ -599,6 +621,179 @@ def api_add_domain(site_id):
             
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500        
+
+
+################ Bulk Deployment Routes #################
+
+@app.route("/bulk-deploy", methods=["GET"])
+@login_required
+def bulk_deploy_page():
+    """Bulk deployment dashboard page"""
+    # Get counts
+    pending_count = bulk_manager.get_pending_sites_count()
+    live_count = bulk_manager.get_live_sites_count()
+    total_count = pending_count + live_count
+    status = bulk_manager.get_status()
+    
+    return render_template(
+        "bulk_deploy.html",
+        pending_count=pending_count,
+        live_count=live_count,
+        total_count=total_count,
+        is_running=status['is_running'],
+        current_year=datetime.now().year
+    )
+
+
+@app.route("/api/v1/bulk/import", methods=["POST"])
+@login_required
+def api_bulk_import():
+    """Import sites from JSON"""
+    try:
+        data = request.get_json()
+        sites = data.get('sites', [])
+        
+        if not sites:
+            return jsonify({"status": "error", "message": "No sites provided"}), 400
+        
+        imported, skipped, errors = bulk_manager.import_sites_from_json(sites)
+        
+        return jsonify({
+            "status": "success",
+            "imported": imported,
+            "skipped": skipped,
+            "errors": errors[:10]  # Limit errors returned
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/bulk/export", methods=["GET"])
+@login_required
+def api_bulk_export():
+    """Export sites to JSON"""
+    try:
+        status_filter = request.args.get('filter', 'all')
+        sites = bulk_manager.export_sites_to_json(status_filter)
+        
+        return jsonify({
+            "status": "success",
+            "sites": sites
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/bulk/scan-github", methods=["POST"])
+@login_required
+def api_scan_github():
+    """Scan GitHub for Next.js repositories"""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        username = data.get('username')
+        org = data.get('org')
+        
+        if not token:
+            return jsonify({"status": "error", "message": "GitHub token required"}), 400
+        
+        repos = bulk_manager.scan_github_repos(token, username, org)
+        
+        return jsonify({
+            "status": "success",
+            "repos": repos,
+            "count": len(repos)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/bulk/deploy", methods=["POST"])
+@login_required
+def api_bulk_deploy():
+    """Start bulk deployment"""
+    try:
+        data = request.get_json()
+        site_ids = data.get('site_ids')
+        deploy_local = data.get('deploy_local', True)
+        setup_domain = data.get('setup_domain', False)
+        status_filter = data.get('status_filter', 'pending')
+        max_workers = data.get('max_workers', 3)
+        
+        # Update max workers
+        bulk_manager.max_workers = max_workers
+        
+        batch_id = bulk_manager.start_bulk_deploy(
+            site_ids=site_ids,
+            deploy_local=deploy_local,
+            setup_domain=setup_domain,
+            status_filter=status_filter
+        )
+        
+        return jsonify({
+            "status": "success",
+            "batch_id": batch_id,
+            "message": "Bulk deployment started"
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/bulk/stop", methods=["POST"])
+@login_required
+def api_bulk_stop():
+    """Stop bulk deployment"""
+    try:
+        stopped = bulk_manager.stop_bulk_deploy()
+        
+        return jsonify({
+            "status": "success" if stopped else "error",
+            "message": "Stop requested" if stopped else "No deployment running"
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/bulk/status", methods=["GET"])
+@login_required
+def api_bulk_status():
+    """Get bulk deployment status"""
+    try:
+        batch_id = request.args.get('batch_id')
+        status = bulk_manager.get_status()
+        progress = bulk_manager.get_progress(batch_id) if batch_id else {}
+        
+        return jsonify({
+            "status": "success",
+            "is_running": status['is_running'],
+            "current_batch_id": status['current_batch_id'],
+            "progress": progress
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/bulk/logs/<batch_id>", methods=["GET"])
+@login_required
+def api_bulk_logs(batch_id):
+    """Get logs for a bulk deployment batch"""
+    try:
+        logs = bulk_manager.get_logs(batch_id)
+        
+        return jsonify({
+            "status": "success",
+            "logs": logs
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0",port=5000, debug=True)
