@@ -157,11 +157,26 @@ another.com,https://github.com/user/another.git"></textarea>
                 <div class="p-4 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sites to Deploy</label>
-                        <select id="deploy-filter" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <select id="deploy-filter" onchange="toggleSiteSelector()" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                             <option value="pending">Pending Sites Only ({{ pending_count }})</option>
                             <option value="all">All Sites ({{ total_count }})</option>
-                            <option value="selected">Selected Sites</option>
+                            <option value="selected">Select Specific Sites...</option>
                         </select>
+                    </div>
+                    <!-- Site Selector (shown when "selected" is chosen) -->
+                    <div id="site-selector" class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">Select sites to deploy:</span>
+                            <div class="flex space-x-2">
+                                <button type="button" onclick="selectAllSites()" class="text-xs text-blue-600 hover:underline">Select All</button>
+                                <button type="button" onclick="selectNoSites()" class="text-xs text-gray-500 hover:underline">Clear</button>
+                            </div>
+                        </div>
+                        <div id="site-checkboxes" class="max-h-48 overflow-y-auto space-y-1">
+                            <!-- Sites loaded dynamically -->
+                            <p class="text-sm text-gray-500">Loading sites...</p>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2"><span id="selected-sites-count">0</span> sites selected</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Parallel Workers</label>
@@ -697,6 +712,76 @@ another.com,https://github.com/user/another.git"></textarea>
         showToast(`${sites.length} repos loaded! Please add domain names for each site, then click Import.`, 'success');
     }
 
+    // Site selector for "Selected Sites" option
+    let allSitesData = [];
+
+    async function loadSitesForSelector() {
+        try {
+            const response = await fetch('/api/v1/bulk/export?filter=all');
+            const result = await response.json();
+            if (result.status === 'success') {
+                allSitesData = result.sites;
+                renderSiteCheckboxes();
+            }
+        } catch (e) {
+            console.error('Failed to load sites:', e);
+        }
+    }
+
+    function renderSiteCheckboxes() {
+        const container = document.getElementById('site-checkboxes');
+        if (allSitesData.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-500">No sites available</p>';
+            return;
+        }
+
+        container.innerHTML = allSitesData.map(site => `
+            <label class="flex items-center p-1 hover:bg-white rounded cursor-pointer">
+                <input type="checkbox" class="site-deploy-checkbox h-4 w-4 text-blue-600 rounded" 
+                       data-site-id="${site.id}" onchange="updateSelectedSitesCount()">
+                <span class="ml-2 text-sm text-gray-700">${site.domain}</span>
+                <span class="ml-auto text-xs ${site.IP_live_status ? 'text-green-600' : 'text-yellow-600'}">
+                    ${site.IP_live_status ? '● Live' : '○ Pending'}
+                </span>
+            </label>
+        `).join('');
+        updateSelectedSitesCount();
+    }
+
+    function toggleSiteSelector() {
+        const filter = document.getElementById('deploy-filter').value;
+        const selector = document.getElementById('site-selector');
+        
+        if (filter === 'selected') {
+            selector.classList.remove('hidden');
+            if (allSitesData.length === 0) {
+                loadSitesForSelector();
+            }
+        } else {
+            selector.classList.add('hidden');
+        }
+    }
+
+    function selectAllSites() {
+        document.querySelectorAll('.site-deploy-checkbox').forEach(cb => cb.checked = true);
+        updateSelectedSitesCount();
+    }
+
+    function selectNoSites() {
+        document.querySelectorAll('.site-deploy-checkbox').forEach(cb => cb.checked = false);
+        updateSelectedSitesCount();
+    }
+
+    function updateSelectedSitesCount() {
+        const count = document.querySelectorAll('.site-deploy-checkbox:checked').length;
+        document.getElementById('selected-sites-count').textContent = count;
+    }
+
+    function getSelectedSiteIds() {
+        const checkboxes = document.querySelectorAll('.site-deploy-checkbox:checked');
+        return Array.from(checkboxes).map(cb => cb.dataset.siteId);
+    }
+
     // Bulk deploy
     async function startBulkDeploy() {
         const filter = document.getElementById('deploy-filter').value;
@@ -709,27 +794,45 @@ another.com,https://github.com/user/another.git"></textarea>
             return;
         }
 
+        // Get selected site IDs if "selected" filter
+        let siteIds = null;
+        if (filter === 'selected') {
+            siteIds = getSelectedSiteIds();
+            if (siteIds.length === 0) {
+                showToast('Please select at least one site to deploy', 'error');
+                return;
+            }
+        }
+
         try {
             document.getElementById('start-deploy-btn').classList.add('hidden');
             document.getElementById('stop-deploy-btn').classList.remove('hidden');
             updateStatusBadge('Running', true);
 
+            const payload = {
+                status_filter: filter,
+                max_workers: workers,
+                deploy_local: deployLocal,
+                setup_domain: setupDomain
+            };
+            
+            // Only include site_ids if specific sites are selected
+            if (siteIds) {
+                payload.site_ids = siteIds;
+            }
+
             const response = await fetch('/api/v1/bulk/deploy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status_filter: filter,
-                    max_workers: workers,
-                    deploy_local: deployLocal,
-                    setup_domain: setupDomain
-                })
+                body: JSON.stringify(payload)
             });
 
             const result = await response.json();
             if (result.status === 'success') {
                 currentBatchId = result.batch_id;
                 document.getElementById('batch-id').textContent = `Batch: ${result.batch_id}`;
-                appendLog(`Deployment started - Batch ID: ${result.batch_id}`, 'success');
+                const siteCount = siteIds ? siteIds.length : (filter === 'pending' ? '{{ pending_count }}' : '{{ total_count }}');
+                appendLog(`Deployment started - Batch ID: ${result.batch_id} - ${siteCount} sites`, 'success');
             } else {
                 showToast(`Error: ${result.message}`, 'error');
                 resetDeployButtons();
@@ -739,6 +842,11 @@ another.com,https://github.com/user/another.git"></textarea>
             resetDeployButtons();
         }
     }
+    
+    // Load sites on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSitesForSelector();
+    });
 
     async function stopBulkDeploy() {
         if (!confirm('Are you sure you want to stop the deployment?')) return;
