@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+env1/
+venv/
+.venv/
+ENV/
+.eggs/
+*.egg-info/
+*.egg
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# History (contains deployment logs - keep locally but don't push sensitive data)
+# Uncomment if you want to exclude: history/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flask
+instance/
+.webassets-cache
+
+# Test files
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Backup files (the copies we identified)
+*copy*.py
+*copy*.json
+

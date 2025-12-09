@@ -1,0 +1,578 @@
+{% extends "base.html" %}
+
+{% block title %}Site Details - {{ site.name }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100 py-6">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Back Button -->
+        <div class="mb-6">
+            <a href="{{ url_for('dashboard') }}" class="inline-flex items-center text-gray-600 hover:text-gray-900">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Dashboard
+            </a>
+        </div>
+
+        <div class="grid grid-cols-12 gap-6">
+            <!-- Left Column: Status and Details -->
+            <div class="col-span-12 lg:col-span-5 space-y-6">
+                <!-- Status Section -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                    <i class="fas fa-globe text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h1 class="text-2xl font-bold text-gray-900">{{ site.name }}</h1>
+                                    <div class="flex items-center space-x-3 mt-2">
+                                        <span class="px-3 py-1 text-sm rounded-full inline-flex items-center 
+                                            {% if site.status == 'live' %}
+                                                bg-green-100 text-green-800
+                                            {% elif site.status == 'pending' %}
+                                                bg-yellow-100 text-yellow-800
+                                            {% else %}
+                                                bg-red-100 text-red-800
+                                            {% endif %}">
+                                            <i class="fas fa-circle text-xs mr-2"></i>
+                                            {{ site.status|title }}
+                                        </span>
+                                        <span class="px-3 py-1 text-sm rounded-full inline-flex items-center 
+                                            {% if site.IP_live_status %}
+                                                bg-green-100 text-green-800
+                                            {% else %}
+                                                bg-gray-100 text-gray-800
+                                            {% endif %}">
+                                            <i class="fas fa-server text-xs mr-2"></i>
+                                            Local: {{ 'Live' if site.IP_live_status else 'Not Live' }}
+                                        </span>
+                                        <span class="px-3 py-1 text-sm rounded-full inline-flex items-center 
+                                            {% if site.domain_status %}
+                                                bg-green-100 text-green-800
+                                            {% else %}
+                                                bg-gray-100 text-gray-800
+                                            {% endif %}">
+                                            <i class="fas fa-globe text-xs mr-2"></i>
+                                            Domain: {{ 'Live' if site.domain_status else 'Not Live' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Site Details -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h2 class="text-lg font-medium text-gray-900 mb-4">Site Information</h2>
+                        <div class="grid grid-cols-1 gap-6">
+                            <div class="border-b pb-4">
+                                <h3 class="text-sm font-medium text-gray-500">Domain</h3>
+                                <p class="mt-1 text-lg text-gray-900">
+                                    <i class="fas fa-link mr-2 text-gray-400"></i>
+                                    {{ site.domain_name }}
+                                </p>
+                            </div>
+                            <div class="border-b pb-4">
+                                <h3 class="text-sm font-medium text-gray-500">Local URL</h3>
+                                <p class="mt-1 text-lg text-gray-900">
+                                    <i class="fas fa-server mr-2 text-gray-400"></i>
+                                    {{ site.IP_URL }}
+                                </p>
+                            </div>
+                            <div class="border-b pb-4">
+                                <h3 class="text-sm font-medium text-gray-500">Repository</h3>
+                                <p class="mt-1 text-lg text-gray-900">
+                                    <i class="fab fa-github mr-2 text-gray-400"></i>
+                                    {{ site.repo }}
+                                </p>
+                            </div>
+                            <div class="border-b pb-4">
+                                <h3 class="text-sm font-medium text-gray-500">Project Directory</h3>
+                                <p class="mt-1 text-lg text-gray-900">
+                                    <i class="fas fa-folder mr-2 text-gray-400"></i>
+                                    {{ site.project_dir }}
+                                </p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-500">Added On</h3>
+                                <p class="mt-1 text-lg text-gray-900">
+                                    <i class="far fa-clock mr-2 text-gray-400"></i>
+                                    {{ site.created_at }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Site Actions -->
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 shadow-lg rounded-lg border border-gray-200">
+                    <div class="px-6 py-5">
+                        <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                            <i class="fas fa-cogs mr-3 text-blue-600"></i>
+                            Actions
+                        </h2>
+                        <div class="space-y-6">
+                            {% if not site.IP_live_status %}
+                                <button id="liveSiteLocalBtn" onclick="liveSiteLocal('{{ site.id }}')"
+                                    class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
+                                    <i id="liveSiteLocalIcon" class="fas fa-server mr-3 text-lg text-blue-100"></i>
+                                    <span id="liveSiteLocalText" class="font-semibold">Live on Local</span>
+                                    <span class="ml-2 bg-blue-700/50 text-blue-50 text-xs px-2 py-1 rounded-full">Deploy</span>
+                                    <div id="liveSiteLocalSpinner" class="hidden ml-2">
+                                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                </button>
+                            {% endif %}
+
+                            {% if site.IP_live_status and not site.domain_status %}
+                                <button id="addDomainBtn" onclick="addDomain('{{ site.id }}')"
+                                    class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-purple-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
+                                    <i id="addDomainIcon" class="fas fa-plus-circle mr-3 text-lg text-purple-100"></i>
+                                    <span id="addDomainText" class="font-semibold">Add Domain</span>
+                                    <span class="ml-2 bg-purple-700/50 text-purple-50 text-xs px-2 py-1 rounded-full">Configure</span>
+                                    <div id="addDomainSpinner" class="hidden ml-2">
+                                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                </button>
+                            {% endif %}
+
+                            {% if site.local_status and not site.domain_status %}
+                                <button onclick="liveSiteDomain('{{ site.id }}')"
+                                    class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-4 focus:ring-green-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
+                                    <i class="fas fa-globe mr-3 text-lg text-green-100"></i>
+                                    <span class="font-semibold">Connect with Domain</span>
+                                    <span class="ml-2 bg-green-700/50 text-green-50 text-xs px-2 py-1 rounded-full">Connect</span>
+                                </button>
+                            {% endif %}
+
+                            <a href="http://{{ site.domain_name }}" target="_blank"
+                                class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200 focus:outline-none focus:ring-4 focus:ring-gray-200 transition-all duration-200 shadow-md hover:shadow-lg border border-gray-200">
+                                <i class="fas fa-external-link-alt mr-3 text-lg text-gray-500"></i>
+                                <span class="font-semibold">Visit Site</span>
+                                <span class="ml-2 bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">Open</span>
+                            </a>
+
+                            {% if site.status == 'live' or site.status == 'pending' %}
+                                <div class="relative group">
+                                    <a href="/rebuild/{{ site.domain_name }}" onclick="console.log('Rebuild link clicked for domain: {{ site.domain_name }}');"
+                                        class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-navy-600 to-navy-700 text-white hover:from-navy-700 hover:to-navy-800 focus:outline-none focus:ring-4 focus:ring-navy-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
+                                        <i class="fas fa-sync-alt mr-3 text-lg text-navy-100"></i>
+                                        <span class="font-semibold">Rebuild Site</span>
+                                        <span class="ml-2 bg-navy-800/50 text-navy-50 text-xs px-2 py-1 rounded-full">Live Site Only</span>
+                                    </a>
+                                    <!-- Tooltip -->
+                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap shadow-lg z-10">
+                                        <div class="text-center">Use this to update your live site with latest changes</div>
+                                        <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                                    </div>
+                                </div>
+                                <!-- Status Indicator -->
+                                <div class="mt-2 text-sm text-gray-600 flex items-center justify-center">
+                                    <i class="fas fa-info-circle mr-2"></i>
+                                    <span>This option is available because your site is live and fully deployed</span>
+                                </div>
+                            {% else %}
+                                <!-- Disabled State with Explanation -->
+                                <div class="w-full px-6 py-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                                    <div class="text-center">
+                                        <div class="flex flex-col items-center space-y-3">
+                                            <div class="p-3 bg-gray-100 rounded-full">
+                                                <i class="fas fa-sync-alt text-gray-400 text-xl"></i>
+                                            </div>
+                                            <span class="font-medium text-gray-700">Rebuild Site</span>
+                                            
+                                            <!-- Requirements List -->
+                                            <div class="w-full space-y-2 mt-2">
+                                                <div class="flex items-center {% if site.status == 'live' %}text-green-600{% else %}text-red-600{% endif %}">
+                                                    <i class="fas {% if site.status == 'live' %}fa-check-circle{% else %}fa-times-circle{% endif %} mr-2"></i>
+                                                    <span class="text-sm">Site Status: {% if site.status == 'live' %}Live{% else %}Pending{% endif %}</span>
+                                                </div>
+                                                <div class="flex items-center {% if site.IP_live_status %}text-green-600{% else %}text-red-600{% endif %}">
+                                                    <i class="fas {% if site.IP_live_status %}fa-check-circle{% else %}fa-times-circle{% endif %} mr-2"></i>
+                                                    <span class="text-sm">Local Deployment: {% if site.IP_live_status %}Complete{% else %}Required{% endif %}</span>
+                                                </div>
+                                                <div class="flex items-center {% if site.domain_status %}text-green-600{% else %}text-red-600{% endif %}">
+                                                    <i class="fas {% if site.domain_status %}fa-check-circle{% else %}fa-times-circle{% endif %} mr-2"></i>
+                                                    <span class="text-sm">Domain Configuration: {% if site.domain_status %}Complete{% else %}Required{% endif %}</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Next Step Message -->
+                                            <div class="mt-3 text-sm font-medium px-3 py-2 rounded-full
+                                                {% if not site.status == 'live' %}
+                                                    bg-red-50 text-red-700
+                                                {% elif not site.IP_live_status %}
+                                                    bg-yellow-50 text-yellow-700
+                                                {% elif not site.domain_status %}
+                                                    bg-blue-50 text-blue-700
+                                                {% else %}
+                                                    bg-gray-50 text-gray-700
+                                                {% endif %}">
+                                                {% if not site.status == 'live' %}
+                                                    Site needs to be live first
+                                                {% elif not site.IP_live_status %}
+                                                    Complete local deployment
+                                                {% elif not site.domain_status %}
+                                                    Configure domain settings
+                                                {% else %}
+                                                    Complete all requirements
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Logs -->
+            <div class="col-span-12 lg:col-span-7 space-y-6">
+                <!-- Local Live Log Section -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-medium text-gray-900">Local Live Logs</h2>
+                            <span id="local-status" class="px-3 py-1 text-sm rounded-full inline-flex items-center bg-gray-100 text-gray-800">
+                                <i class="fas fa-circle text-xs mr-2"></i>
+                                Waiting for updates...
+                            </span>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto font-mono text-sm text-gray-300">
+                            <div id="local-log-content" class="whitespace-pre-wrap"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domain Live Log Section -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-medium text-gray-900">Domain Live Logs</h2>
+                            <span id="domain-status" class="px-3 py-1 text-sm rounded-full inline-flex items-center bg-gray-100 text-gray-800">
+                                <i class="fas fa-circle text-xs mr-2"></i>
+                                Waiting for updates...
+                            </span>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto font-mono text-sm text-gray-300">
+                            <div id="domain-log-content" class="whitespace-pre-wrap"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deployment History -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h2 class="text-lg font-medium text-gray-900 mb-4">Deployment History</h2>
+                        <div class="space-y-4" id="deployment-history">
+                            {% if site.deployment_history %}
+                                {% for entry in site.deployment_history %}
+                                    <div class="border-l-4 pl-4 {% if 'error' in entry %}border-red-500{% else %}border-green-500{% endif %}">
+                                        <div class="text-sm text-gray-600">{{ entry }}</div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-gray-500 italic">No deployment history available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const localLogContent = document.getElementById('local-log-content');
+const domainLogContent = document.getElementById('domain-log-content');
+const localStatus = document.getElementById('local-status');
+const domainStatus = document.getElementById('domain-status');
+const socket = io();
+const siteId = "{{ site.id }}";
+const domainName = "{{ site.domain_name }}";
+
+// Load existing log file content if available
+async function loadExistingLogs() {
+    try {
+        // Load local logs
+        const localResponse = await fetch(`/get-domain-logs/${domainName}?type=local`);
+        if (localResponse.ok) {
+            const response = await localResponse.json();
+            if (response.status === 'success' && response.logs) {
+                localLogContent.innerHTML = '';
+                response.logs.split('\n').forEach(line => {
+                    if (line.trim()) {  // Only process non-empty lines
+                        let type = 'info';
+                        if (line.includes('❌ ERROR:')) {
+                            type = 'error';
+                        } else if (line.includes('✅')) {
+                            type = 'success';
+                        }
+                        appendLog(localLogContent, line.replace(/\[.*?\] (ℹ️|❌ ERROR:|✅) /, ''), type);
+                    }
+                });
+                
+                // Update status based on last line
+                const lines = response.logs.split('\n').filter(line => line.trim());
+                if (lines.length > 0) {
+                    const lastLine = lines[lines.length - 1];
+                    updateStatus(localStatus, 'Local', lastLine.includes('✅ Site deployed successfully'));
+                }
+            }
+        }
+
+        // Load domain logs
+        const domainResponse = await fetch(`/get-domain-logs/${domainName}?type=domain`);
+        if (domainResponse.ok) {
+            const response = await domainResponse.json();
+            if (response.status === 'success' && response.logs) {
+                domainLogContent.innerHTML = '';
+                response.logs.split('\n').forEach(line => {
+                    if (line.trim()) {  // Only process non-empty lines
+                        let type = 'info';
+                        if (line.includes('❌ ERROR:')) {
+                            type = 'error';
+                        } else if (line.includes('✅')) {
+                            type = 'success';
+                        }
+                        appendLog(domainLogContent, line.replace(/\[.*?\] (ℹ️|❌ ERROR:|✅) /, ''), type);
+                    }
+                });
+                
+                // Update status based on last line
+                const lines = response.logs.split('\n').filter(line => line.trim());
+                if (lines.length > 0) {
+                    const lastLine = lines[lines.length - 1];
+                    updateStatus(domainStatus, 'Domain', lastLine.includes('✅ Site deployed successfully'));
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading log file:', error);
+    }
+}
+
+// Load logs when page loads
+document.addEventListener('DOMContentLoaded', loadExistingLogs);
+
+// Function to update status indicator
+function updateStatus(statusElement, type, isActive = false) {
+    statusElement.className = `px-3 py-1 text-sm rounded-full inline-flex items-center ${
+        isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+    }`;
+    const icon = statusElement.querySelector('i');
+    icon.className = `fas fa-circle text-xs mr-2 ${isActive ? 'text-green-500' : 'text-gray-500'}`;
+    statusElement.querySelector('span') && statusElement.removeChild(statusElement.querySelector('span'));
+    statusElement.appendChild(document.createTextNode(
+        isActive ? `${type} Process Running` : 'Waiting for updates...'
+    ));
+}
+
+// Function to append log message
+function appendLog(logElement, message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const colorClass = type === 'error' ? 'text-red-400' : 
+                      type === 'success' ? 'text-green-400' : 
+                      'text-gray-300';
+    
+    const logLine = document.createElement('div');
+    logLine.className = colorClass;
+    logLine.innerHTML = `[${timestamp}] ${message}`;
+    logElement.appendChild(logLine);
+    logElement.scrollTop = logElement.scrollHeight;
+}
+
+// Listen for log updates for this specific site
+socket.on(`log_update_${siteId}`, function(data) {
+    const logContent = data.type === 'local' ? localLogContent : domainLogContent;
+    const statusElement = data.type === 'local' ? localStatus : domainStatus;
+    const statusText = data.type === 'local' ? 'Local' : 'Domain';
+    
+    // Update status indicator
+    updateStatus(statusElement, statusText, data.status === 'running');
+    
+    // Append log message
+    appendLog(logContent, data.message, data.status);
+    
+    // Handle completion
+    if (data.status === 'success' || data.status === 'error') {
+        // Reset button state based on type
+        let btn, spinner, text, icon;
+        
+        if (data.type === 'local') {
+            btn = document.getElementById('liveSiteLocalBtn');
+            spinner = document.getElementById('liveSiteLocalSpinner');
+            text = document.getElementById('liveSiteLocalText');
+            icon = document.getElementById('liveSiteLocalIcon');
+        } else {
+            btn = document.getElementById('addDomainBtn');
+            spinner = document.getElementById('addDomainSpinner');
+            text = document.getElementById('addDomainText');
+            icon = document.getElementById('addDomainIcon');
+        }
+        
+        if (btn) {
+            btn.disabled = false;
+            spinner.classList.add('hidden');
+            icon.classList.remove('hidden');
+            text.textContent = data.type === 'local' ? 'Live on Local' : 'Add Domain';
+            
+                            if (data.status === 'success') {
+                    // Show success message and refresh
+                    appendLog(logContent, '✓ Deployment completed successfully', 'success');
+                    
+                    // If this is a local deployment, hide the button
+                    if (data.type === 'local') {
+                        btn.style.display = 'none';
+                    }
+                    
+                    // Refresh the page after a delay
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    // Show error message
+                    appendLog(logContent, '✗ Deployment failed', 'error');
+                }
+        }
+    }
+});
+
+// Handle socket connection events
+socket.on('connect', function() {
+    console.log('Connected to server');
+});
+
+socket.on('disconnect', function() {
+    console.log('Disconnected from server');
+    // Update both local and domain status
+    updateStatus(localStatus, 'Local', false);
+    updateStatus(domainStatus, 'Domain', false);
+    // Log disconnect message to both logs
+    appendLog(localLogContent, 'Lost connection to server', 'error');
+    appendLog(domainLogContent, 'Lost connection to server', 'error');
+});
+
+socket.on('connect_error', function(error) {
+    console.error('Connection Error:', error);
+    // Log connection error to both logs
+    appendLog(localLogContent, 'Failed to connect to server', 'error');
+    appendLog(domainLogContent, 'Failed to connect to server', 'error');
+});
+
+async function liveSiteLocal(siteId) {
+    const btn = document.getElementById('liveSiteLocalBtn');
+    const spinner = document.getElementById('liveSiteLocalSpinner');
+    const text = document.getElementById('liveSiteLocalText');
+    const icon = document.getElementById('liveSiteLocalIcon');
+
+    try {
+        // Disable button and show spinner
+        btn.disabled = true;
+        spinner.classList.remove('hidden');
+        icon.classList.add('hidden');
+        text.textContent = 'Deploying...';
+
+        // Clear previous logs
+        localLogContent.innerHTML = '';
+        appendLog(localLogContent, 'Starting local deployment process...', 'info');
+        
+        const response = await fetch(`/live-local/${siteId}`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to deploy site locally');
+        }
+
+        appendLog(localLogContent, 'Deployment request sent successfully', 'success');
+    } catch (error) {
+        console.error('Error:', error);
+        appendLog(localLogContent, `Error: ${error.message}`, 'error');
+        updateStatus(localStatus, 'Local', false);
+        
+        // Reset button on error
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+        icon.classList.remove('hidden');
+        text.textContent = 'Live on Local';
+    }
+}
+
+async function addDomain(siteId) {
+    const btn = document.getElementById('addDomainBtn');
+    const spinner = document.getElementById('addDomainSpinner');
+    const text = document.getElementById('addDomainText');
+    const icon = document.getElementById('addDomainIcon');
+
+    try {
+        // Disable button and show spinner
+        btn.disabled = true;
+        spinner.classList.remove('hidden');
+        icon.classList.add('hidden');
+        text.textContent = 'Adding Domain...';
+
+        // Clear previous logs
+        domainLogContent.innerHTML = '';
+        appendLog(domainLogContent, 'Starting domain addition process...', 'info');
+        
+        const response = await fetch(`/add-domain/${siteId}`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to add domain');
+        }
+
+        appendLog(domainLogContent, 'Domain addition request sent successfully', 'success');
+        
+        // Update status and refresh page on success
+        updateStatus(domainStatus, 'Domain', true);
+        setTimeout(() => window.location.reload(), 2000);
+    } catch (error) {
+        console.error('Error:', error);
+        appendLog(domainLogContent, `Error: ${error.message}`, 'error');
+        updateStatus(domainStatus, 'Domain', false);
+        
+        // Reset button on error
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+        icon.classList.remove('hidden');
+        text.textContent = 'Add Domain';
+    }
+}
+
+async function liveSiteDomain(siteId) {
+    try {
+        // Clear previous logs
+        domainLogContent.innerHTML = '';
+        appendLog(domainLogContent, 'Starting domain deployment process...', 'info');
+        
+        const response = await fetch(`/live-domain/${siteId}`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to deploy site to domain');
+        }
+
+        appendLog(domainLogContent, 'Deployment request sent successfully', 'success');
+    } catch (error) {
+        console.error('Error:', error);
+        appendLog(domainLogContent, `Error: ${error.message}`, 'error');
+        updateStatus(domainStatus, 'Domain', false);
+    }
+}
+
+</script>
+{% endblock %}

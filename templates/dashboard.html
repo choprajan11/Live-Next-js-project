@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Deployment Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                        <i class="fas fa-globe text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Sites</dt>
+                            <dd class="text-3xl font-semibold text-gray-900">{{ sites|length }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                        <i class="fas fa-check-circle text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active Sites</dt>
+                            <dd class="text-3xl font-semibold text-gray-900">
+                                {{ sites|selectattr("status", "equalto", "active")|list|length }}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                        <i class="fas fa-clock text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Pending Deployments</dt>
+                            <dd class="text-3xl font-semibold text-gray-900">
+                                {{ sites|selectattr("status", "equalto", "pending")|list|length }}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Site Form -->
+    <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                Add New Site
+            </h3>
+            <div class="mt-5">
+                <form id="deployForm" method="post" class="space-y-6">
+                    <div>
+                        <label for="site_name" class="block text-sm font-medium text-gray-700">
+                            Site Name
+                        </label>
+                        <div class="mt-1 flex rounded-md shadow-sm">
+                            <input type="text" name="site_name" id="site_name" required
+                                class="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300"
+                                placeholder="My Awesome Site">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="git_link" class="block text-sm font-medium text-gray-700">
+                            Git Repository URL
+                        </label>
+                        <div class="mt-1 flex rounded-md shadow-sm">
+                            <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                                <i class="fab fa-github"></i>
+                            </span>
+                            <input type="url" name="git_link" id="git_link" required
+                                class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300"
+                                placeholder="https://github.com/username/repository">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="domain_name" class="block text-sm font-medium text-gray-700">
+                            Domain Name
+                        </label>
+                        <div class="mt-1 flex rounded-md shadow-sm">
+                            <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                                <i class="fas fa-globe"></i>
+                            </span>
+                            <input type="text" name="domain_name" id="domain_name" required
+                                class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300"
+                                placeholder="example.com">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Site
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sites List -->
+    <div class="bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                Your Sites
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% if sites %}
+                    {% for site in sites %}
+                        <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                            data-site-id="{{ site.id }}"
+                            data-local-status="{{ site.local_status|lower }}"
+                            data-domain-status="{{ site.domain_status|lower }}">
+                            <div class="p-5">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-globe text-blue-500 text-2xl"></i>
+                                        </div>
+                                        <a href="{{ url_for('site_details', site_id=site.id) }}" class="text-gray-500 hover:text-gray-700">
+                                            <i class="fas fa-cog text-xl"></i>
+                                        </a>
+                                    </div>
+                                    <span class="px-2 py-1 text-sm rounded-full 
+                                        {% if site.status == 'active' %}
+                                            bg-green-100 text-green-800
+                                        {% elif site.status == 'pending' %}
+                                            bg-yellow-100 text-yellow-800
+                                        {% else %}
+                                            bg-red-100 text-red-800
+                                        {% endif %}">
+                                        {{ site.status|title }}
+                                    </span>
+                                </div>
+                                
+                                <h4 class="text-xl font-semibold text-gray-900 mb-2">
+                                    {{ site.name }}
+                                </h4>
+                                
+                                <div class="space-y-2 mb-4">
+                                    <p class="text-sm text-gray-600">
+                                        <i class="fas fa-link mr-2"></i>{{ site.domain }}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <i class="fab fa-github mr-2"></i>{{ site.repo }}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <i class="fas fa-folder mr-2"></i>{{ site.project_directory }}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <i class="far fa-clock mr-2"></i>Added {{ site.time }}
+                                    </p>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <a href="{{ site.url }}" target="_blank"
+                                        class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        <i class="fas fa-external-link-alt mr-2"></i>
+                                        Visit Site
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-inbox text-gray-400 text-5xl mb-4"></i>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No sites added yet</h3>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Get started by adding your first site above.
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('deployForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    showLoading();
+    
+    // Form validation
+    const siteName = document.getElementById('site_name').value;
+    const gitLink = document.getElementById('git_link').value;
+    const domainName = document.getElementById('domain_name').value;
+    
+    if (!siteName.trim()) {
+        hideLoading();
+        showToast('Please enter a site name', 'error');
+        return;
+    }
+
+    if (!gitLink.match(/^https?:\/\/[^\s/$.?#].[^\s]*$/i)) {
+        hideLoading();
+        showToast('Please enter a valid Git repository URL', 'error');
+        return;
+    }
+    
+    if (!domainName.match(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/)) {
+        hideLoading();
+        showToast('Please enter a valid domain name', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/add-site', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: siteName,
+                repo: gitLink,
+                domain: domainName
+            })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to add site');
+        }
+
+        showToast(data.message || 'Site added successfully!', 'success');
+        window.location.reload();
+    } catch (error) {
+        console.error('Error:', error);
+        showToast(error.message || 'Failed to add site. Please try again.', 'error');
+    } finally {
+        hideLoading();
+    }
+});
+
+async function liveSiteLocal(siteId) {
+    try {
+        showLoading();
+        const response = await fetch(`/live-local/${siteId}`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to deploy site locally');
+        }
+
+        showToast('Site is being deployed locally...', 'success');
+        setTimeout(() => window.location.reload(), 2000);
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Failed to deploy site locally. Please try again.', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function liveSiteDomain(siteId) {
+    try {
+        showLoading();
+        const response = await fetch(`/live-domain/${siteId}`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to deploy site to domain');
+        }
+
+        showToast('Site is being deployed to domain...', 'success');
+        setTimeout(() => window.location.reload(), 2000);
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Failed to deploy site to domain. Please try again.', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Auto-refresh status for sites in progress
+setInterval(async function() {
+    const pendingSites = document.querySelectorAll('.bg-yellow-100').length;
+    if (pendingSites > 0) {
+        try {
+            const response = await fetch(window.location.href);
+            const html = await response.text();
+            const parser = new DOMParser();
+            const newDoc = parser.parseFromString(html, 'text/html');
+            const currentGrid = document.querySelector('.grid');
+            const newGrid = newDoc.querySelector('.grid');
+            if (currentGrid && newGrid) {
+                currentGrid.innerHTML = newGrid.innerHTML;
+            }
+        } catch (error) {
+            console.error('Error refreshing status:', error);
+        }
+    }
+}, 10000); // Check every 10 seconds
+
+
+</script>
+{% endblock %}
