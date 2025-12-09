@@ -802,10 +802,18 @@ server {{
                     raise Exception("Failed to get Cloudflare nameservers")
                 self._log_message(domain_name, f"Retrieved Cloudflare nameservers: {', '.join(nameservers)}", "success", site_id)
                 
-                # Update Namecheap nameservers only
+                # Try to update Namecheap nameservers (non-blocking if fails)
                 if not self.namecheap.set_nameservers(domain_name, nameservers):
-                    raise Exception("Failed to update Namecheap nameservers")
-                self._log_message(domain_name, "Updated Namecheap nameservers for existing Cloudflare zone", "success", site_id)
+                    self._log_message(domain_name, "⚠️ Could not auto-update Namecheap nameservers", "warning", site_id)
+                    self._log_message(domain_name, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "warning", site_id)
+                    self._log_message(domain_name, "🔧 MANUAL ACTION REQUIRED:", "warning", site_id)
+                    self._log_message(domain_name, f"   Add these nameservers to your domain registrar:", "warning", site_id)
+                    for ns in nameservers:
+                        self._log_message(domain_name, f"   → {ns}", "warning", site_id)
+                    self._log_message(domain_name, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "warning", site_id)
+                    self._log_message(domain_name, "Continuing with Cloudflare setup...", "info", site_id)
+                else:
+                    self._log_message(domain_name, "Updated Namecheap nameservers for existing Cloudflare zone", "success", site_id)
                 # Get port from sites.json
                 port = 3000  # default port
                 try:
@@ -845,10 +853,18 @@ server {{
                     raise Exception("Failed to get Cloudflare nameservers")
                 self._log_message(domain_name, f"Retrieved Cloudflare nameservers: {', '.join(nameservers)}", "success", site_id)
 
-                # Update Namecheap nameservers
+                # Try to update Namecheap nameservers (non-blocking if fails)
                 if not self.namecheap.set_nameservers(domain_name, nameservers):
-                    raise Exception("Failed to update Namecheap nameservers")
-                self._log_message(domain_name, "Updated Namecheap nameservers", "success", site_id)
+                    self._log_message(domain_name, "⚠️ Could not auto-update Namecheap nameservers", "warning", site_id)
+                    self._log_message(domain_name, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "warning", site_id)
+                    self._log_message(domain_name, "🔧 MANUAL ACTION REQUIRED:", "warning", site_id)
+                    self._log_message(domain_name, f"   Add these nameservers to your domain registrar:", "warning", site_id)
+                    for ns in nameservers:
+                        self._log_message(domain_name, f"   → {ns}", "warning", site_id)
+                    self._log_message(domain_name, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "warning", site_id)
+                    self._log_message(domain_name, "Continuing with Nginx/SSL setup...", "info", site_id)
+                else:
+                    self._log_message(domain_name, "Updated Namecheap nameservers", "success", site_id)
 
                 # Get port from sites.json
                 port = 3000  # default port
