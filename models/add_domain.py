@@ -366,6 +366,118 @@ class CloudflareClient:
         
         return success
 
+    def get_dns_records(self, zone_id: str, record_type: str = None) -> List[dict]:
+        """Get existing DNS records for a zone"""
+        url = f"{self.base_url}/zones/{zone_id}/dns_records"
+        params = {}
+        if record_type:
+            params['type'] = record_type
+        
+        try:
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
+            self._log_api_response(response, f"get_dns_records(zone_id={zone_id})")
+            
+            if response.ok:
+                data = response.json()
+                if data.get('success'):
+                    return data.get('result', [])
+            return []
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Failed to get DNS records: {str(e)}")
+            return []
+
+    def update_dns_record(self, zone_id: str, record_id: str, record_data: dict) -> bool:
+        """Update an existing DNS record"""
+        url = f"{self.base_url}/zones/{zone_id}/dns_records/{record_id}"
+        
+        try:
+            response = requests.put(url, headers=self.headers, json=record_data, timeout=30)
+            self._log_api_response(response, f"update_dns_record(zone_id={zone_id}, record_id={record_id})")
+            
+            if response.ok and response.json().get('success'):
+                return True
+            return False
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Failed to update DNS record: {str(e)}")
+            return False
+
+    def delete_dns_record(self, zone_id: str, record_id: str) -> bool:
+        """Delete a DNS record"""
+        url = f"{self.base_url}/zones/{zone_id}/dns_records/{record_id}"
+        
+        try:
+            response = requests.delete(url, headers=self.headers, timeout=30)
+            self._log_api_response(response, f"delete_dns_record(zone_id={zone_id}, record_id={record_id})")
+            
+            if response.ok and response.json().get('success'):
+                return True
+            return False
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Failed to delete DNS record: {str(e)}")
+            return False
+
+    def update_or_create_a_records(self, zone_id: str, server_ip: str, domain_name: str) -> bool:
+        """Update existing A records or create new ones to point to the server IP"""
+        # Get existing A records
+        existing_records = self.get_dns_records(zone_id, record_type='A')
+        
+        # Records we need: @, www, *
+        required_names = ['@', 'www', '*']
+        existing_names = {}
+        
+        for record in existing_records:
+            name = record.get('name', '')
+            # Cloudflare returns full domain, convert to simple name
+            if name == domain_name:
+                existing_names['@'] = record
+            elif name == f'www.{domain_name}':
+                existing_names['www'] = record
+            elif name == f'*.{domain_name}':
+                existing_names['*'] = record
+        
+        success = True
+        
+        for name in required_names:
+            record_data = {
+                'type': 'A',
+                'name': name,
+                'content': server_ip,
+                'ttl': 1,
+                'proxied': False
+            }
+            
+            if name in existing_names:
+                existing = existing_names[name]
+                # Check if IP is different
+                if existing.get('content') != server_ip:
+                    print(f"🔄 Updating A record for {name}: {existing.get('content')} → {server_ip}")
+                    if not self.update_dns_record(zone_id, existing['id'], record_data):
+                        success = False
+                        print(f"❌ Failed to update A record for {name}")
+                    else:
+                        print(f"✅ Updated A record for {name}")
+                else:
+                    print(f"✓ A record for {name} already points to {server_ip}")
+            else:
+                # Create new record
+                print(f"➕ Creating A record for {name} → {server_ip}")
+                url = f"{self.base_url}/zones/{zone_id}/dns_records"
+                try:
+                    response = requests.post(url, headers=self.headers, json=record_data, timeout=30)
+                    if not response.ok or not response.json().get('success'):
+                        success = False
+                        print(f"❌ Failed to create A record for {name}")
+                    else:
+                        print(f"✅ Created A record for {name}")
+                except Exception as e:
+                    success = False
+                    print(f"❌ Error creating A record for {name}: {e}")
+        
+        return success
+
 class DomainManager:
     def __init__(self):
         # Load environment variables if .env file exists
@@ -503,13 +615,14 @@ class DomainManager:
             cloudflare_ini_path = os.getenv('CLOUDFLARE_INI_PATH', '/etc/letsencrypt/cloudflare.ini')
             
             # Run certbot command to obtain SSL certificate (with lock to prevent concurrent runs)
-            certbot_cmd = f'sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials {cloudflare_ini_path} -d {domain_name} -d "*.{domain_name}" --agree-tos --non-interactive -m {certbot_email}'
+            # Added --dns-cloudflare-propagation-seconds to wait for DNS propagation
+            certbot_cmd = f'sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials {cloudflare_ini_path} --dns-cloudflare-propagation-seconds 30 -d {domain_name} -d "*.{domain_name}" --agree-tos --non-interactive -m {certbot_email}'
             
             self._log_message(domain_name, f"Waiting for certbot lock...", "info", site_id)
             
             # Use lock to ensure only one certbot runs at a time
-            max_retries = 3
-            retry_delay = 10  # seconds
+            max_retries = 5
+            base_delay = 15  # Base delay in seconds
             
             with certbot_lock:
                 self._log_message(domain_name, f"Running certbot for SSL certificate...", "info", site_id)
@@ -520,16 +633,31 @@ class DomainManager:
                         self._log_message(domain_name, "SSL certificate obtained successfully", "success", site_id)
                         if result.stdout:
                             self._log_message(domain_name, f"Certbot output: {result.stdout[:500]}", "info", site_id)
+                        
+                        # Add delay after successful certbot to prevent rate limiting
+                        time.sleep(5)
                         break  # Success, exit retry loop
+                        
                     except subprocess.CalledProcessError as e:
                         error_output = e.stderr if e.stderr else str(e)
                         
-                        # Check if it's a "already running" error
-                        if "Another instance of Certbot is already running" in error_output:
-                            if attempt < max_retries - 1:
-                                self._log_message(domain_name, f"Certbot busy, waiting {retry_delay}s (attempt {attempt + 1}/{max_retries})...", "warning", site_id)
-                                time.sleep(retry_delay)
-                                continue
+                        # Check for retryable errors
+                        retryable_errors = [
+                            "Another instance of Certbot is already running",
+                            "Service busy",
+                            "retry later",
+                            "rate limit",
+                            "too many requests"
+                        ]
+                        
+                        is_retryable = any(err.lower() in error_output.lower() for err in retryable_errors)
+                        
+                        if is_retryable and attempt < max_retries - 1:
+                            # Exponential backoff with jitter
+                            retry_delay = base_delay * (2 ** attempt) + (attempt * 5)
+                            self._log_message(domain_name, f"Certbot busy/rate-limited, waiting {retry_delay}s (attempt {attempt + 1}/{max_retries})...", "warning", site_id)
+                            time.sleep(retry_delay)
+                            continue
                         
                         error_msg = f"Failed to obtain SSL certificate: {error_output[:500]}"
                         self._log_message(domain_name, error_msg, "error", site_id)
@@ -660,6 +788,13 @@ server {{
             zone_id = self.cloudflare.get_zone(domain_name)
             if zone_id:
                 self._log_message(domain_name, "Found existing Cloudflare zone", "success", site_id)
+                
+                # Update or create A records to point to the correct server IP
+                self._log_message(domain_name, f"Checking A records to ensure they point to {self.server_ip}...", "info", site_id)
+                if not self.cloudflare.update_or_create_a_records(zone_id, self.server_ip, domain_name):
+                    self._log_message(domain_name, "Warning: Some A records may not have been updated", "warning", site_id)
+                else:
+                    self._log_message(domain_name, f"A records verified/updated to point to {self.server_ip}", "success", site_id)
                 
                 # Get existing nameservers from Cloudflare
                 nameservers = self.cloudflare.get_nameservers(zone_id)

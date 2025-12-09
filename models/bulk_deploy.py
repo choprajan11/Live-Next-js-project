@@ -337,6 +337,9 @@ class BulkDeploymentManager:
                     return False, f"Domain setup failed: {message}"
                 
                 self._log(batch_id, f"Domain setup successful", "success", domain_name)
+                
+                # Add delay after domain setup to prevent rate limiting on Cloudflare/Let's Encrypt
+                time.sleep(10)
             
             self._update_progress(batch_id, domain_name, "completed", "completed")
             self._log(batch_id, f"Deployment completed successfully", "success", domain_name)
@@ -398,6 +401,11 @@ class BulkDeploymentManager:
         self._log(batch_id, f"Starting bulk deployment of {len(sites_to_deploy)} sites", "info")
         self._log(batch_id, f"Max parallel workers: {self.max_workers}", "info")
         self._log(batch_id, f"Deploy local: {deploy_local}, Setup domain: {setup_domain}", "info")
+        
+        # Warn about rate limiting when domain setup is enabled with multiple workers
+        if setup_domain and self.max_workers > 1:
+            self._log(batch_id, "⚠️ WARNING: Domain setup with multiple workers may hit Cloudflare/Let's Encrypt rate limits", "warning")
+            self._log(batch_id, "Recommendation: Use 1 worker for domain setup, or deploy locally first", "warning")
         
         # Initialize progress for all sites
         for site_id, site_info in sites_to_deploy:
