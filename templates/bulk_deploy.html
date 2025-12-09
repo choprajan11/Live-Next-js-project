@@ -269,11 +269,23 @@
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        <div id="github-repos-list" class="p-4 max-h-96 overflow-y-auto"></div>
+        <!-- Select All/None buttons -->
+        <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <span class="text-sm text-gray-600"><span id="selected-repos-count">0</span> repositories selected</span>
+            <div class="flex space-x-2">
+                <button onclick="selectAllRepos()" class="px-3 py-1 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50">
+                    <i class="fas fa-check-double mr-1"></i>Select All
+                </button>
+                <button onclick="selectNoRepos()" class="px-3 py-1 text-xs font-medium text-gray-600 border border-gray-300 rounded hover:bg-gray-100">
+                    <i class="fas fa-times mr-1"></i>Select None
+                </button>
+            </div>
+        </div>
+        <div id="github-repos-list" class="p-4 max-h-80 overflow-y-auto"></div>
         <div class="px-4 py-3 border-t border-gray-200 flex justify-end space-x-2">
             <button onclick="closeGithubModal()" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
             <button onclick="importSelectedRepos()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                <i class="fas fa-plus-circle mr-1"></i>Import Selected
+                <i class="fas fa-plus-circle mr-1"></i>Import Selected (<span id="import-count">0</span>)
             </button>
         </div>
     </div>
@@ -493,7 +505,7 @@
         } else {
             container.innerHTML = repos.map((repo, i) => `
                 <label class="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
-                    <input type="checkbox" class="h-4 w-4 text-blue-600 rounded" id="repo-${i}" data-repo='${JSON.stringify(repo)}' checked>
+                    <input type="checkbox" class="repo-checkbox h-4 w-4 text-blue-600 rounded" id="repo-${i}" data-repo='${JSON.stringify(repo)}' checked onchange="updateRepoCount()">
                     <div class="ml-3">
                         <p class="text-sm font-medium text-gray-900">${repo.name}</p>
                         <p class="text-xs text-gray-500">Next.js ${repo.next_version} ${repo.private ? '• Private' : ''}</p>
@@ -504,6 +516,24 @@
         
         document.getElementById('githubResultsModal').classList.remove('hidden');
         document.getElementById('githubResultsModal').classList.add('flex');
+        updateRepoCount();
+    }
+
+    function selectAllRepos() {
+        document.querySelectorAll('.repo-checkbox').forEach(cb => cb.checked = true);
+        updateRepoCount();
+    }
+
+    function selectNoRepos() {
+        document.querySelectorAll('.repo-checkbox').forEach(cb => cb.checked = false);
+        updateRepoCount();
+    }
+
+    function updateRepoCount() {
+        const total = document.querySelectorAll('.repo-checkbox').length;
+        const selected = document.querySelectorAll('.repo-checkbox:checked').length;
+        document.getElementById('selected-repos-count').textContent = selected;
+        document.getElementById('import-count').textContent = selected;
     }
 
     function closeGithubModal() {
@@ -512,9 +542,13 @@
     }
 
     async function importSelectedRepos() {
-        const checkboxes = document.querySelectorAll('#github-repos-list input:checked');
-        const sites = [];
+        const checkboxes = document.querySelectorAll('.repo-checkbox:checked');
+        if (checkboxes.length === 0) {
+            showToast('Please select at least one repository', 'error');
+            return;
+        }
         
+        const sites = [];
         checkboxes.forEach(cb => {
             const repo = JSON.parse(cb.dataset.repo);
             sites.push({
@@ -527,7 +561,7 @@
         document.getElementById('import-json').value = JSON.stringify(sites, null, 2);
         closeGithubModal();
         switchTab('json');
-        showToast('Repos loaded! Please add domain names for each site, then click Import.', 'success');
+        showToast(`${sites.length} repos loaded! Please add domain names for each site, then click Import.`, 'success');
     }
 
     // Bulk deploy
