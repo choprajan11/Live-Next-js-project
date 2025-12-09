@@ -9,6 +9,10 @@ from urllib.parse import urlencode
 from typing import Tuple, List, Optional, Dict
 import time
 import re
+import threading
+
+# Global lock for certbot to prevent concurrent runs
+certbot_lock = threading.Lock()
 
 def validate_domain_name(domain_name: str) -> bool:
     """
@@ -498,21 +502,39 @@ class DomainManager:
             certbot_email = os.getenv('CERTBOT_EMAIL', os.getenv('ADMIN_EMAIL', 'admin@example.com'))
             cloudflare_ini_path = os.getenv('CLOUDFLARE_INI_PATH', '/etc/letsencrypt/cloudflare.ini')
             
-            # Run certbot command to obtain SSL certificate
+            # Run certbot command to obtain SSL certificate (with lock to prevent concurrent runs)
             certbot_cmd = f'sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials {cloudflare_ini_path} -d {domain_name} -d "*.{domain_name}" --agree-tos --non-interactive -m {certbot_email}'
-            self._log_message(domain_name, f"Running certbot for SSL certificate...", "info", site_id)
             
-            try:
-                result = subprocess.run(certbot_cmd, shell=True, check=True, capture_output=True, text=True)
-                self._log_message(domain_name, "SSL certificate obtained successfully", "success", site_id)
-                if result.stdout:
-                    self._log_message(domain_name, f"Certbot output: {result.stdout[:500]}", "info", site_id)
-            except subprocess.CalledProcessError as e:
-                error_output = e.stderr if e.stderr else str(e)
-                error_msg = f"Failed to obtain SSL certificate: {error_output[:500]}"
-                self._log_message(domain_name, error_msg, "error", site_id)
-                self._log_message(domain_name, "Tip: Check /etc/letsencrypt/cloudflare.ini exists with correct API token", "info", site_id)
-                raise Exception(error_msg)
+            self._log_message(domain_name, f"Waiting for certbot lock...", "info", site_id)
+            
+            # Use lock to ensure only one certbot runs at a time
+            max_retries = 3
+            retry_delay = 10  # seconds
+            
+            with certbot_lock:
+                self._log_message(domain_name, f"Running certbot for SSL certificate...", "info", site_id)
+                
+                for attempt in range(max_retries):
+                    try:
+                        result = subprocess.run(certbot_cmd, shell=True, check=True, capture_output=True, text=True)
+                        self._log_message(domain_name, "SSL certificate obtained successfully", "success", site_id)
+                        if result.stdout:
+                            self._log_message(domain_name, f"Certbot output: {result.stdout[:500]}", "info", site_id)
+                        break  # Success, exit retry loop
+                    except subprocess.CalledProcessError as e:
+                        error_output = e.stderr if e.stderr else str(e)
+                        
+                        # Check if it's a "already running" error
+                        if "Another instance of Certbot is already running" in error_output:
+                            if attempt < max_retries - 1:
+                                self._log_message(domain_name, f"Certbot busy, waiting {retry_delay}s (attempt {attempt + 1}/{max_retries})...", "warning", site_id)
+                                time.sleep(retry_delay)
+                                continue
+                        
+                        error_msg = f"Failed to obtain SSL certificate: {error_output[:500]}"
+                        self._log_message(domain_name, error_msg, "error", site_id)
+                        self._log_message(domain_name, "Tip: Check /etc/letsencrypt/cloudflare.ini exists with correct API token", "info", site_id)
+                        raise Exception(error_msg)
 
             nginx_config = f'''# Connection upgrade mapping
 map $http_upgrade $connection_upgrade {{
