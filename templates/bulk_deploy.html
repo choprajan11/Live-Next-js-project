@@ -3,250 +3,234 @@
 {% block title %}Bulk Deployment - Site Manager{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="space-y-6">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="flex justify-between items-center">
         <div>
-            <h1 class="h3 mb-1" style="color: #000;">Bulk Deployment</h1>
-            <p class="text-muted mb-0">Deploy multiple Next.js sites at once</p>
+            <h1 class="text-2xl font-bold text-gray-900">Bulk Deployment</h1>
+            <p class="text-gray-500">Deploy multiple Next.js sites at once</p>
         </div>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-            ← Back to Dashboard
+        <a href="{{ url_for('dashboard') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Dashboard
         </a>
     </div>
 
     <!-- Stats Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3">
-                            <i class="bi bi-clock text-warning fs-4"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Pending</h6>
-                            <h3 class="mb-0" id="pending-count" style="color: #000;">{{ pending_count }}</h3>
-                        </div>
-                    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg shadow p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-yellow-100 rounded-full p-3">
+                    <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Pending</p>
+                    <p class="text-2xl font-bold text-gray-900" id="pending-count">{{ pending_count }}</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
-                            <i class="bi bi-check-circle text-success fs-4"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Live</h6>
-                            <h3 class="mb-0" id="live-count" style="color: #000;">{{ live_count }}</h3>
-                        </div>
-                    </div>
+        <div class="bg-white rounded-lg shadow p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-green-100 rounded-full p-3">
+                    <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Live</p>
+                    <p class="text-2xl font-bold text-gray-900" id="live-count">{{ live_count }}</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
-                            <i class="bi bi-collection text-primary fs-4"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Total</h6>
-                            <h3 class="mb-0" id="total-count" style="color: #000;">{{ total_count }}</h3>
-                        </div>
-                    </div>
+        <div class="bg-white rounded-lg shadow p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-blue-100 rounded-full p-3">
+                    <i class="fas fa-globe text-blue-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Total</p>
+                    <p class="text-2xl font-bold text-gray-900" id="total-count">{{ total_count }}</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3">
-                            <i class="bi bi-cpu text-info fs-4"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Status</h6>
-                            <span class="badge" id="deployment-status-badge">
-                                {{ 'Running' if is_running else 'Idle' }}
-                            </span>
-                        </div>
-                    </div>
+        <div class="bg-white rounded-lg shadow p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-purple-100 rounded-full p-3">
+                    <i class="fas fa-cog text-purple-600 text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Status</p>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-800' if is_running else 'bg-gray-100 text-gray-800' }}" id="deployment-status-badge">
+                        {{ 'Running' if is_running else 'Idle' }}
+                    </span>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Left Column: Controls -->
-        <div class="col-lg-5">
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <!-- Left Column: Controls (2/5) -->
+        <div class="lg:col-span-2 space-y-6">
             <!-- Import Sites Card -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0" style="color: #000;">
-                        <i class="bi bi-upload me-2"></i>Import Sites
-                    </h5>
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-upload mr-2 text-blue-500"></i>Import Sites
+                    </h3>
                 </div>
-                <div class="card-body">
-                    <ul class="nav nav-tabs mb-3" id="importTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-import" type="button">JSON</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="github-tab" data-bs-toggle="tab" data-bs-target="#github-import" type="button">GitHub Scan</button>
-                        </li>
-                    </ul>
-                    <div class="tab-content">
-                        <!-- JSON Import -->
-                        <div class="tab-pane fade show active" id="json-import">
-                            <div class="mb-3">
-                                <label class="form-label" style="color: #000;">Paste JSON Array</label>
-                                <textarea class="form-control" id="import-json" rows="6" placeholder='[
-  {"domain": "example.com", "repo": "https://github.com/user/repo", "name": "Example Site"},
-  {"domain": "another.com", "repo": "https://github.com/user/another", "name": "Another Site"}
-]' style="font-family: monospace; font-size: 12px;"></textarea>
-                                <div class="form-text">Format: Array of objects with domain, repo, and name fields</div>
-                            </div>
-                            <button class="btn btn-primary" onclick="importFromJson()">
-                                <i class="bi bi-plus-circle me-1"></i>Import Sites
+                <div class="p-4">
+                    <!-- Tabs -->
+                    <div class="border-b border-gray-200 mb-4">
+                        <nav class="-mb-px flex space-x-8">
+                            <button onclick="switchTab('json')" id="json-tab-btn" class="tab-btn border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                                JSON
                             </button>
-                        </div>
-                        <!-- GitHub Import -->
-                        <div class="tab-pane fade" id="github-import">
-                            <div class="mb-3">
-                                <label class="form-label" style="color: #000;">GitHub Personal Access Token</label>
-                                <input type="password" class="form-control" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
-                                <div class="form-text">Needs repo read access. <a href="https://github.com/settings/tokens/new" target="_blank">Create token</a></div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label" style="color: #000;">Username/Organization (optional)</label>
-                                <input type="text" class="form-control" id="github-username" placeholder="Leave empty for authenticated user">
-                            </div>
-                            <button class="btn btn-dark" onclick="scanGitHub()">
-                                <i class="bi bi-github me-1"></i>Scan for Next.js Repos
+                            <button onclick="switchTab('github')" id="github-tab-btn" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                                GitHub Scan
                             </button>
+                        </nav>
+                    </div>
+
+                    <!-- JSON Tab -->
+                    <div id="json-tab" class="tab-content">
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Paste JSON Array</label>
+                            <textarea id="import-json" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-mono" placeholder='[
+  {"domain": "example.com", "repo": "https://github.com/user/repo", "name": "Example Site"}
+]'></textarea>
+                            <p class="mt-1 text-xs text-gray-500">Format: Array of objects with domain, repo, and name fields</p>
                         </div>
+                        <button onclick="importFromJson()" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                            <i class="fas fa-plus-circle mr-2"></i>Import Sites
+                        </button>
+                    </div>
+
+                    <!-- GitHub Tab -->
+                    <div id="github-tab" class="tab-content hidden">
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">GitHub Personal Access Token</label>
+                            <input type="password" id="github-token" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="ghp_xxxxxxxxxxxx">
+                            <p class="mt-1 text-xs text-gray-500">Needs repo read access. <a href="https://github.com/settings/tokens/new" target="_blank" class="text-blue-600 hover:underline">Create token</a></p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Username/Organization (optional)</label>
+                            <input type="text" id="github-username" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Leave empty for authenticated user">
+                        </div>
+                        <button onclick="scanGitHub()" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-800 hover:bg-gray-900">
+                            <i class="fab fa-github mr-2"></i>Scan for Next.js Repos
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Bulk Deploy Controls -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0" style="color: #000;">
-                        <i class="bi bi-rocket-takeoff me-2"></i>Deploy Controls
-                    </h5>
+            <!-- Deploy Controls Card -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-rocket mr-2 text-green-500"></i>Deploy Controls
+                    </h3>
                 </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label" style="color: #000;">Sites to Deploy</label>
-                        <select class="form-select" id="deploy-filter">
+                <div class="p-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Sites to Deploy</label>
+                        <select id="deploy-filter" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                             <option value="pending">Pending Sites Only ({{ pending_count }})</option>
                             <option value="all">All Sites ({{ total_count }})</option>
                             <option value="selected">Selected Sites</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label" style="color: #000;">Parallel Workers</label>
-                        <select class="form-select" id="max-workers">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Parallel Workers</label>
+                        <select id="max-workers" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                             <option value="1">1 (Sequential - Safest)</option>
                             <option value="2">2 (Balanced)</option>
                             <option value="3" selected>3 (Recommended)</option>
                             <option value="5">5 (Fast - High RAM usage)</option>
                         </select>
-                        <div class="form-text">More workers = faster but uses more RAM</div>
+                        <p class="mt-1 text-xs text-gray-500">More workers = faster but uses more RAM</p>
                     </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="deploy-local" checked>
-                            <label class="form-check-label" style="color: #000;">
-                                Deploy Locally (git clone, npm install, build, pm2)
-                            </label>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="setup-domain">
-                            <label class="form-check-label" style="color: #000;">
-                                Setup Domain (Cloudflare, Nginx, SSL)
-                            </label>
-                        </div>
-                        <div class="form-text text-warning">
-                            <i class="bi bi-exclamation-triangle me-1"></i>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="deploy-local" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <span class="ml-2 text-sm text-gray-700">Deploy Locally (git clone, npm install, build, pm2)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="setup-domain" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <span class="ml-2 text-sm text-gray-700">Setup Domain (Cloudflare, Nginx, SSL)</span>
+                        </label>
+                        <p class="text-xs text-yellow-600 ml-6">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>
                             Let's Encrypt rate limit: 50 certs/week
-                        </div>
+                        </p>
                     </div>
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-success btn-lg" id="start-deploy-btn" onclick="startBulkDeploy()">
-                            <i class="bi bi-play-circle me-2"></i>Start Bulk Deployment
+                    <div class="pt-2 space-y-2">
+                        <button id="start-deploy-btn" onclick="startBulkDeploy()" class="w-full inline-flex justify-center items-center px-4 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
+                            <i class="fas fa-play-circle mr-2"></i>Start Bulk Deployment
                         </button>
-                        <button class="btn btn-danger" id="stop-deploy-btn" onclick="stopBulkDeploy()" style="display: none;">
-                            <i class="bi bi-stop-circle me-2"></i>Stop Deployment
+                        <button id="stop-deploy-btn" onclick="stopBulkDeploy()" class="hidden w-full inline-flex justify-center items-center px-4 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700">
+                            <i class="fas fa-stop-circle mr-2"></i>Stop Deployment
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Export -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0" style="color: #000;">
-                        <i class="bi bi-download me-2"></i>Export Sites
-                    </h5>
+            <!-- Export Card -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-download mr-2 text-purple-500"></i>Export Sites
+                    </h3>
                 </div>
-                <div class="card-body">
-                    <div class="btn-group w-100">
-                        <button class="btn btn-outline-secondary" onclick="exportSites('all')">All Sites</button>
-                        <button class="btn btn-outline-secondary" onclick="exportSites('pending')">Pending</button>
-                        <button class="btn btn-outline-secondary" onclick="exportSites('live')">Live</button>
+                <div class="p-4">
+                    <div class="flex space-x-2">
+                        <button onclick="exportSites('all')" class="flex-1 px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">All Sites</button>
+                        <button onclick="exportSites('pending')" class="flex-1 px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Pending</button>
+                        <button onclick="exportSites('live')" class="flex-1 px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Live</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Right Column: Progress & Logs -->
-        <div class="col-lg-7">
+        <!-- Right Column: Progress & Logs (3/5) -->
+        <div class="lg:col-span-3 space-y-6">
             <!-- Progress Card -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0" style="color: #000;">
-                        <i class="bi bi-bar-chart me-2"></i>Deployment Progress
-                    </h5>
-                    <span class="badge bg-secondary" id="batch-id"></span>
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-chart-bar mr-2 text-blue-500"></i>Deployment Progress
+                    </h3>
+                    <span class="text-xs text-gray-500" id="batch-id"></span>
                 </div>
-                <div class="card-body">
+                <div class="p-4">
                     <!-- Progress Bar -->
-                    <div class="mb-3">
-                        <div class="progress" style="height: 25px;">
-                            <div class="progress-bar bg-success" id="progress-completed" style="width: 0%"></div>
-                            <div class="progress-bar bg-danger" id="progress-failed" style="width: 0%"></div>
-                            <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated" id="progress-inprogress" style="width: 0%"></div>
+                    <div class="mb-4">
+                        <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                            <div class="h-full flex">
+                                <div id="progress-completed" class="bg-green-500 transition-all duration-500" style="width: 0%"></div>
+                                <div id="progress-failed" class="bg-red-500 transition-all duration-500" style="width: 0%"></div>
+                                <div id="progress-inprogress" class="bg-yellow-400 animate-pulse transition-all duration-500" style="width: 0%"></div>
+                            </div>
                         </div>
-                        <div class="d-flex justify-content-between mt-2 small">
-                            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Completed: <span id="progress-completed-count">0</span></span>
-                            <span class="text-danger"><i class="bi bi-x-circle me-1"></i>Failed: <span id="progress-failed-count">0</span></span>
-                            <span class="text-warning"><i class="bi bi-arrow-repeat me-1"></i>In Progress: <span id="progress-inprogress-count">0</span></span>
-                            <span class="text-muted"><i class="bi bi-clock me-1"></i>Pending: <span id="progress-pending-count">0</span></span>
+                        <div class="flex justify-between mt-2 text-xs">
+                            <span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Completed: <span id="progress-completed-count">0</span></span>
+                            <span class="text-red-600"><i class="fas fa-times-circle mr-1"></i>Failed: <span id="progress-failed-count">0</span></span>
+                            <span class="text-yellow-600"><i class="fas fa-spinner mr-1"></i>In Progress: <span id="progress-inprogress-count">0</span></span>
+                            <span class="text-gray-500"><i class="fas fa-clock mr-1"></i>Pending: <span id="progress-pending-count">0</span></span>
                         </div>
                     </div>
 
                     <!-- Sites Status Table -->
-                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                        <table class="table table-sm table-hover" id="sites-progress-table">
-                            <thead class="table-light sticky-top">
+                    <div class="overflow-y-auto max-h-64 border border-gray-200 rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
                                 <tr>
-                                    <th style="color: #000;">Domain</th>
-                                    <th style="color: #000;">Step</th>
-                                    <th style="color: #000;">Status</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Domain</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Step</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="sites-progress-body">
+                            <tbody id="sites-progress-body" class="bg-white divide-y divide-gray-200">
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted py-4">
+                                    <td colspan="3" class="px-4 py-8 text-center text-gray-500">
                                         No deployment in progress
                                     </td>
                                 </tr>
@@ -257,19 +241,17 @@
             </div>
 
             <!-- Logs Card -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0" style="color: #000;">
-                        <i class="bi bi-terminal me-2"></i>Deployment Logs
-                    </h5>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
-                        <i class="bi bi-trash me-1"></i>Clear
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-terminal mr-2 text-gray-500"></i>Deployment Logs
+                    </h3>
+                    <button onclick="clearLogs()" class="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
+                        <i class="fas fa-trash mr-1"></i>Clear
                     </button>
                 </div>
-                <div class="card-body p-0">
-                    <div id="logs-container" class="bg-dark text-light p-3" style="height: 400px; overflow-y: auto; font-family: 'Fira Code', 'Monaco', monospace; font-size: 12px; white-space: pre-wrap;">
-                        <span class="text-muted">Waiting for deployment to start...</span>
-                    </div>
+                <div id="logs-container" class="bg-gray-900 text-gray-100 p-4 h-80 overflow-y-auto font-mono text-xs leading-relaxed">
+                    <span class="text-gray-500">Waiting for deployment to start...</span>
                 </div>
             </div>
         </div>
@@ -277,53 +259,41 @@
 </div>
 
 <!-- GitHub Scan Results Modal -->
-<div class="modal fade" id="githubResultsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" style="color: #000;">
-                    <i class="bi bi-github me-2"></i>Next.js Repositories Found
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="github-repos-list"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="importSelectedRepos()">
-                    <i class="bi bi-plus-circle me-1"></i>Import Selected
-                </button>
-            </div>
+<div id="githubResultsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-screen overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-medium text-gray-900">
+                <i class="fab fa-github mr-2"></i>Next.js Repositories Found
+            </h3>
+            <button onclick="closeGithubModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="github-repos-list" class="p-4 max-h-96 overflow-y-auto"></div>
+        <div class="px-4 py-3 border-t border-gray-200 flex justify-end space-x-2">
+            <button onclick="closeGithubModal()" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+            <button onclick="importSelectedRepos()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                <i class="fas fa-plus-circle mr-1"></i>Import Selected
+            </button>
         </div>
     </div>
 </div>
 
 <style>
-    .progress {
-        border-radius: 10px;
-    }
-    .progress-bar {
-        transition: width 0.5s ease-in-out;
-    }
     #logs-container::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
     }
     #logs-container::-webkit-scrollbar-track {
-        background: #1a1a2e;
+        background: #1f2937;
     }
     #logs-container::-webkit-scrollbar-thumb {
-        background: #4a4a6a;
-        border-radius: 4px;
+        background: #4b5563;
+        border-radius: 3px;
     }
     .log-success { color: #22c55e; }
     .log-error { color: #ef4444; }
     .log-warning { color: #f59e0b; }
     .log-info { color: #94a3b8; }
-    
-    #deployment-status-badge.bg-success { background-color: #22c55e !important; }
-    #deployment-status-badge.bg-warning { background-color: #f59e0b !important; }
-    #deployment-status-badge.bg-secondary { background-color: #6b7280 !important; }
     
     .status-completed { color: #22c55e; }
     .status-failed { color: #ef4444; }
@@ -331,16 +301,30 @@
     .status-pending { color: #6b7280; }
     .status-skipped { color: #8b5cf6; }
 </style>
+{% endblock %}
 
+{% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
 <script>
     const socket = io();
     let currentBatchId = null;
 
+    // Tab switching
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(el => {
+            el.classList.remove('border-blue-500', 'text-blue-600');
+            el.classList.add('border-transparent', 'text-gray-500');
+        });
+        
+        document.getElementById(tab + '-tab').classList.remove('hidden');
+        document.getElementById(tab + '-tab-btn').classList.remove('border-transparent', 'text-gray-500');
+        document.getElementById(tab + '-tab-btn').classList.add('border-blue-500', 'text-blue-600');
+    }
+
     // Socket event listeners
     socket.on('connect', () => {
         console.log('Connected to server');
-        updateStatusBadge('Idle', 'secondary');
     });
 
     socket.on('bulk_progress_update', (data) => {
@@ -351,10 +335,12 @@
         appendLog(data.log_entry, data.status);
     });
 
-    function updateStatusBadge(text, color) {
+    function updateStatusBadge(text, isRunning) {
         const badge = document.getElementById('deployment-status-badge');
         badge.textContent = text;
-        badge.className = `badge bg-${color}`;
+        badge.className = isRunning 
+            ? 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800'
+            : 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800';
     }
 
     function updateProgress(batchId, progress) {
@@ -386,16 +372,20 @@
         tbody.innerHTML = '';
         
         const sites = progress.sites || {};
-        for (const [domain, info] of Object.entries(sites)) {
-            const statusClass = `status-${info.status}`;
-            const statusIcon = getStatusIcon(info.status);
-            tbody.innerHTML += `
-                <tr>
-                    <td style="color: #000;">${domain}</td>
-                    <td style="color: #000;">${info.step || '-'}</td>
-                    <td class="${statusClass}">${statusIcon} ${info.status}</td>
-                </tr>
-            `;
+        if (Object.keys(sites).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500">No deployment in progress</td></tr>';
+        } else {
+            for (const [domain, info] of Object.entries(sites)) {
+                const statusClass = `status-${info.status}`;
+                const statusIcon = getStatusIcon(info.status);
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-2 text-sm text-gray-900">${domain}</td>
+                        <td class="px-4 py-2 text-sm text-gray-500">${info.step || '-'}</td>
+                        <td class="px-4 py-2 text-sm ${statusClass}">${statusIcon} ${info.status}</td>
+                    </tr>
+                `;
+            }
         }
     }
 
@@ -412,30 +402,27 @@
 
     function appendLog(logEntry, status) {
         const container = document.getElementById('logs-container');
-        if (container.querySelector('.text-muted')) {
+        if (container.querySelector('.text-gray-500')) {
             container.innerHTML = '';
         }
         
         const logClass = `log-${status}`;
-        container.innerHTML += `<div class="${logClass}">${escapeHtml(logEntry)}</div>`;
+        const div = document.createElement('div');
+        div.className = logClass;
+        div.textContent = logEntry;
+        container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
 
     function clearLogs() {
-        document.getElementById('logs-container').innerHTML = '<span class="text-muted">Logs cleared...</span>';
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        document.getElementById('logs-container').innerHTML = '<span class="text-gray-500">Logs cleared...</span>';
     }
 
     // Import from JSON
     async function importFromJson() {
         const jsonText = document.getElementById('import-json').value.trim();
         if (!jsonText) {
-            alert('Please enter JSON data');
+            showToast('Please enter JSON data', 'error');
             return;
         }
 
@@ -445,6 +432,7 @@
                 throw new Error('JSON must be an array');
             }
 
+            showLoading();
             const response = await fetch('/api/v1/bulk/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -452,14 +440,17 @@
             });
 
             const result = await response.json();
+            hideLoading();
+            
             if (result.status === 'success') {
-                alert(`Imported: ${result.imported}, Skipped: ${result.skipped}`);
-                location.reload();
+                showToast(`Imported: ${result.imported}, Skipped: ${result.skipped}`, 'success');
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert(`Error: ${result.message}`);
+                showToast(`Error: ${result.message}`, 'error');
             }
         } catch (e) {
-            alert(`Invalid JSON: ${e.message}`);
+            hideLoading();
+            showToast(`Invalid JSON: ${e.message}`, 'error');
         }
     }
 
@@ -469,15 +460,12 @@
         const username = document.getElementById('github-username').value.trim();
 
         if (!token) {
-            alert('Please enter a GitHub token');
+            showToast('Please enter a GitHub token', 'error');
             return;
         }
 
         try {
-            const btn = event.target;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Scanning...';
-
+            showLoading();
             const response = await fetch('/api/v1/bulk/scan-github', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -485,38 +473,42 @@
             });
 
             const result = await response.json();
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-github me-1"></i>Scan for Next.js Repos';
+            hideLoading();
 
             if (result.status === 'success') {
                 displayGitHubResults(result.repos);
             } else {
-                alert(`Error: ${result.message}`);
+                showToast(`Error: ${result.message}`, 'error');
             }
         } catch (e) {
-            alert(`Error: ${e.message}`);
+            hideLoading();
+            showToast(`Error: ${e.message}`, 'error');
         }
     }
 
     function displayGitHubResults(repos) {
         const container = document.getElementById('github-repos-list');
         if (repos.length === 0) {
-            container.innerHTML = '<p class="text-muted">No Next.js repositories found</p>';
+            container.innerHTML = '<p class="text-gray-500 text-center py-4">No Next.js repositories found</p>';
         } else {
             container.innerHTML = repos.map((repo, i) => `
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" id="repo-${i}" 
-                           data-repo='${JSON.stringify(repo)}' checked>
-                    <label class="form-check-label" for="repo-${i}" style="color: #000;">
-                        <strong>${repo.name}</strong>
-                        <span class="text-muted ms-2">Next.js ${repo.next_version}</span>
-                        ${repo.private ? '<span class="badge bg-secondary ms-2">Private</span>' : ''}
-                    </label>
-                </div>
+                <label class="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" class="h-4 w-4 text-blue-600 rounded" id="repo-${i}" data-repo='${JSON.stringify(repo)}' checked>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-900">${repo.name}</p>
+                        <p class="text-xs text-gray-500">Next.js ${repo.next_version} ${repo.private ? '• Private' : ''}</p>
+                    </div>
+                </label>
             `).join('');
         }
         
-        new bootstrap.Modal(document.getElementById('githubResultsModal')).show();
+        document.getElementById('githubResultsModal').classList.remove('hidden');
+        document.getElementById('githubResultsModal').classList.add('flex');
+    }
+
+    function closeGithubModal() {
+        document.getElementById('githubResultsModal').classList.add('hidden');
+        document.getElementById('githubResultsModal').classList.remove('flex');
     }
 
     async function importSelectedRepos() {
@@ -526,19 +518,16 @@
         checkboxes.forEach(cb => {
             const repo = JSON.parse(cb.dataset.repo);
             sites.push({
-                domain: '', // User will need to set this
+                domain: '',
                 repo: repo.clone_url,
                 name: repo.name
             });
         });
 
-        // Show the JSON in the import textarea for user to edit domains
         document.getElementById('import-json').value = JSON.stringify(sites, null, 2);
-        bootstrap.Modal.getInstance(document.getElementById('githubResultsModal')).hide();
-        
-        // Switch to JSON tab
-        document.getElementById('json-tab').click();
-        alert('Repos loaded! Please add domain names for each site, then click Import.');
+        closeGithubModal();
+        switchTab('json');
+        showToast('Repos loaded! Please add domain names for each site, then click Import.', 'success');
     }
 
     // Bulk deploy
@@ -549,14 +538,14 @@
         const setupDomain = document.getElementById('setup-domain').checked;
 
         if (!deployLocal && !setupDomain) {
-            alert('Please select at least one action (Deploy Local or Setup Domain)');
+            showToast('Please select at least one action', 'error');
             return;
         }
 
         try {
-            document.getElementById('start-deploy-btn').style.display = 'none';
-            document.getElementById('stop-deploy-btn').style.display = 'block';
-            updateStatusBadge('Running', 'warning');
+            document.getElementById('start-deploy-btn').classList.add('hidden');
+            document.getElementById('stop-deploy-btn').classList.remove('hidden');
+            updateStatusBadge('Running', true);
 
             const response = await fetch('/api/v1/bulk/deploy', {
                 method: 'POST',
@@ -575,11 +564,11 @@
                 document.getElementById('batch-id').textContent = `Batch: ${result.batch_id}`;
                 appendLog(`Deployment started - Batch ID: ${result.batch_id}`, 'success');
             } else {
-                alert(`Error: ${result.message}`);
+                showToast(`Error: ${result.message}`, 'error');
                 resetDeployButtons();
             }
         } catch (e) {
-            alert(`Error: ${e.message}`);
+            showToast(`Error: ${e.message}`, 'error');
             resetDeployButtons();
         }
     }
@@ -595,14 +584,14 @@
                 appendLog('Stop requested - waiting for current tasks to complete...', 'warning');
             }
         } catch (e) {
-            alert(`Error: ${e.message}`);
+            showToast(`Error: ${e.message}`, 'error');
         }
     }
 
     function resetDeployButtons() {
-        document.getElementById('start-deploy-btn').style.display = 'block';
-        document.getElementById('stop-deploy-btn').style.display = 'none';
-        updateStatusBadge('Idle', 'secondary');
+        document.getElementById('start-deploy-btn').classList.remove('hidden');
+        document.getElementById('stop-deploy-btn').classList.add('hidden');
+        updateStatusBadge('Idle', false);
     }
 
     // Export
@@ -618,15 +607,16 @@
                 a.href = url;
                 a.download = `sites_${filter}_${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
+                showToast('Export downloaded!', 'success');
             } else {
-                alert(`Error: ${result.message}`);
+                showToast(`Error: ${result.message}`, 'error');
             }
         } catch (e) {
-            alert(`Error: ${e.message}`);
+            showToast(`Error: ${e.message}`, 'error');
         }
     }
 
-    // Poll for status updates (backup for WebSocket)
+    // Poll for status updates
     setInterval(async () => {
         if (!currentBatchId) return;
         
@@ -634,11 +624,9 @@
             const response = await fetch(`/api/v1/bulk/status?batch_id=${currentBatchId}`);
             const result = await response.json();
             
-            if (result.status === 'success') {
-                if (!result.is_running) {
-                    resetDeployButtons();
-                    updateStatusBadge('Completed', 'success');
-                }
+            if (result.status === 'success' && !result.is_running) {
+                resetDeployButtons();
+                updateStatusBadge('Completed', false);
             }
         } catch (e) {
             console.error('Status poll error:', e);
@@ -646,4 +634,3 @@
     }, 5000);
 </script>
 {% endblock %}
-
