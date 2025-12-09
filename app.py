@@ -416,6 +416,56 @@ def add_domain(site_id):
         print(f"Error setting up domain: {str(e)}")
         return {"status": "error", "message": str(e)}, 500
 
+@app.route("/api/v1/update-domain/<site_id>", methods=["POST"])
+@login_required
+def api_update_domain(site_id):
+    """Update domain: refresh Cloudflare A records and reinstall SSL certificate"""
+    try:
+        # Load sites data from the JSON file
+        sites_data = {}
+        if os.path.exists(site_manager.sites_json_path):
+            try:
+                with open(site_manager.sites_json_path, 'r') as f:
+                    sites_data = json.load(f)
+            except json.JSONDecodeError:
+                return {"status": "error", "message": "Invalid sites data"}, 400
+
+        # Get the specific site data
+        site = sites_data.get(site_id)
+        if not site:
+            return {"status": "error", "message": "Site not found"}, 404
+
+        # Get the domain name and port from the site data
+        domain_name = site.get('domain_name')
+        port = site.get('port', 3000)
+        if not domain_name:
+            return {"status": "error", "message": "Domain name not found for site"}, 400
+
+        # Override _log_command to send websocket updates
+        original_log_command = domain_manager._log_command
+        def new_log_command(*args, **kwargs):
+            log_data = original_log_command(*args, **kwargs)
+            log_data['type'] = 'domain'
+            send_log_update(site_id, log_data)
+            return log_data
+        domain_manager._log_command = new_log_command
+
+        # Run the update domain process
+        success, message = domain_manager.update_domain_dns_ssl(domain_name, site_id, port)
+
+        # Restore original _log_command
+        domain_manager._log_command = original_log_command
+
+        return {
+            "status": "success" if success else "error",
+            "message": message
+        }, 200
+
+    except Exception as e:
+        print(f"Error updating domain: {str(e)}")
+        return {"status": "error", "message": str(e)}, 500
+
+
 @app.route("/get-domain-logs/<domain_name>")
 @login_required
 def get_domain_logs(domain_name):

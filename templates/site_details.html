@@ -161,6 +161,24 @@
                                 <span class="ml-2 bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">Open</span>
                             </a>
 
+                            <!-- Update Domain (DNS + SSL) Button -->
+                            <button id="updateDomainBtn" onclick="updateDomain('{{ site.id }}')"
+                                class="w-full inline-flex justify-center items-center px-6 py-4 text-base font-medium rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-4 focus:ring-orange-500/50 transition-all duration-200 shadow-md hover:shadow-lg border-0">
+                                <i id="updateDomainIcon" class="fas fa-cloud-upload-alt mr-3 text-lg text-orange-100"></i>
+                                <span id="updateDomainText" class="font-semibold">Update Domain</span>
+                                <span class="ml-2 bg-orange-700/50 text-orange-50 text-xs px-2 py-1 rounded-full">DNS + SSL</span>
+                                <div id="updateDomainSpinner" class="hidden ml-2">
+                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                            </button>
+                            <p class="text-xs text-gray-500 text-center -mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Updates Cloudflare A records & reinstalls SSL certificate
+                            </p>
+
                             {% if site.status == 'live' or site.status == 'pending' %}
                                 <div class="relative group">
                                     <a href="/rebuild/{{ site.domain_name }}" onclick="console.log('Rebuild link clicked for domain: {{ site.domain_name }}');"
@@ -571,6 +589,49 @@ async function liveSiteDomain(siteId) {
         console.error('Error:', error);
         appendLog(domainLogContent, `Error: ${error.message}`, 'error');
         updateStatus(domainStatus, 'Domain', false);
+    }
+}
+
+async function updateDomain(siteId) {
+    const btn = document.getElementById('updateDomainBtn');
+    const spinner = document.getElementById('updateDomainSpinner');
+    const text = document.getElementById('updateDomainText');
+    const icon = document.getElementById('updateDomainIcon');
+
+    try {
+        // Disable button and show spinner
+        btn.disabled = true;
+        spinner.classList.remove('hidden');
+        icon.classList.add('hidden');
+        text.textContent = 'Updating...';
+
+        // Clear previous logs
+        domainLogContent.innerHTML = '';
+        appendLog(domainLogContent, 'Starting domain update (DNS + SSL)...', 'info');
+        
+        const response = await fetch(`/api/v1/update-domain/${siteId}`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || result.status !== 'success') {
+            throw new Error(result.message || 'Failed to update domain');
+        }
+
+        appendLog(domainLogContent, 'Domain update request sent successfully', 'success');
+        updateStatus(domainStatus, 'Domain', true);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        appendLog(domainLogContent, `Error: ${error.message}`, 'error');
+        updateStatus(domainStatus, 'Domain', false);
+    } finally {
+        // Reset button
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+        icon.classList.remove('hidden');
+        text.textContent = 'Update Domain';
     }
 }
 

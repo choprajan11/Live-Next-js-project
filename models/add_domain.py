@@ -900,3 +900,63 @@ server {{
             self._log_message(domain_name, error_msg, "error", site_id)
             self._update_sites_json(domain_name, False)
             return False, error_msg
+
+    def update_domain_dns_ssl(self, domain_name: str, site_id: str = None, port: int = 3000) -> Tuple[bool, str]:
+        """
+        Update domain: refresh Cloudflare A records to point to server IP and reinstall SSL certificate.
+        This is useful when:
+        - Server IP has changed
+        - SSL certificate needs renewal
+        - A records are pointing to wrong IP
+        """
+        try:
+            # Validate domain name format
+            if not validate_domain_name(domain_name):
+                raise ValueError("Invalid domain name format")
+                
+            self._log_message(domain_name, "Starting domain update (DNS + SSL)...", "info", site_id)
+            
+            # Step 1: Get or create Cloudflare zone
+            zone_id = self.cloudflare.get_zone(domain_name)
+            if not zone_id:
+                self._log_message(domain_name, "Cloudflare zone not found, creating new zone...", "info", site_id)
+                zone_id = self.cloudflare.create_zone(domain_name)
+                if not zone_id:
+                    raise Exception("Failed to create Cloudflare zone")
+                self._log_message(domain_name, "Created new Cloudflare zone", "success", site_id)
+            else:
+                self._log_message(domain_name, "Found existing Cloudflare zone", "success", site_id)
+            
+            # Step 2: Update A records to point to server IP
+            self._log_message(domain_name, f"Updating A records to point to {self.server_ip}...", "info", site_id)
+            if self.cloudflare.update_or_create_a_records(zone_id, self.server_ip, domain_name):
+                self._log_message(domain_name, f"✅ A records updated to {self.server_ip}", "success", site_id)
+            else:
+                self._log_message(domain_name, "⚠️ Some A records may not have been updated", "warning", site_id)
+            
+            # Step 3: Get nameservers (for reference)
+            nameservers = self.cloudflare.get_nameservers(zone_id)
+            if nameservers:
+                self._log_message(domain_name, f"Cloudflare nameservers: {', '.join(nameservers)}", "info", site_id)
+            
+            # Step 4: Reinstall SSL certificate
+            self._log_message(domain_name, "Reinstalling SSL certificate...", "info", site_id)
+            success, message = self.create_nginx_config(domain_name, site_id, port)
+            
+            if not success:
+                raise Exception(f"Failed to reinstall SSL: {message}")
+            
+            self._log_message(domain_name, "✅ SSL certificate reinstalled successfully", "success", site_id)
+            
+            # Update sites.json
+            self._update_sites_json(domain_name, True)
+            
+            # Final success message
+            success_msg = "Domain update completed: A records updated & SSL reinstalled"
+            self._log_message(domain_name, success_msg, "success", site_id)
+            return True, success_msg
+
+        except Exception as e:
+            error_msg = str(e)
+            self._log_message(domain_name, f"Domain update failed: {error_msg}", "error", site_id)
+            return False, error_msg
