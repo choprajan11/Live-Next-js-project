@@ -843,10 +843,6 @@ another.com,https://github.com/user/another.git"></textarea>
         }
     }
     
-    // Load sites on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        loadSitesForSelector();
-    });
 
     async function stopBulkDeploy() {
         if (!confirm('Are you sure you want to stop the deployment?')) return;
@@ -891,21 +887,73 @@ another.com,https://github.com/user/another.git"></textarea>
         }
     }
 
-    // Poll for status updates
-    setInterval(async () => {
-        if (!currentBatchId) return;
-        
+    // Poll for status updates and refresh logs every 5 seconds
+    let lastLogCount = 0;
+    
+    async function refreshBulkStatus() {
         try {
-            const response = await fetch(`/api/v1/bulk/status?batch_id=${currentBatchId}`);
-            const result = await response.json();
+            // Always refresh stats from server
+            const statsResponse = await fetch('/api/v1/bulk/stats');
+            if (statsResponse.ok) {
+                const stats = await statsResponse.json();
+                if (stats.status === 'success') {
+                    document.getElementById('pending-count').textContent = stats.pending_count;
+                    document.getElementById('live-count').textContent = stats.live_count;
+                    document.getElementById('total-count').textContent = stats.total_count;
+                    
+                    // Update status badge
+                    if (stats.is_running) {
+                        updateStatusBadge('Running', true);
+                        document.getElementById('start-deploy-btn').classList.add('hidden');
+                        document.getElementById('stop-deploy-btn').classList.remove('hidden');
+                    }
+                }
+            }
             
-            if (result.status === 'success' && !result.is_running) {
-                resetDeployButtons();
-                updateStatusBadge('Completed', false);
+            // If we have a batch running, get its progress and logs
+            if (currentBatchId) {
+                const response = await fetch(`/api/v1/bulk/status?batch_id=${currentBatchId}`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Update progress from server
+                    if (result.progress) {
+                        updateProgress(currentBatchId, result.progress);
+                    }
+                    
+                    // Append new logs
+                    if (result.logs && result.logs.length > lastLogCount) {
+                        const newLogs = result.logs.slice(lastLogCount);
+                        newLogs.forEach(log => {
+                            // Parse log to determine status
+                            let status = 'info';
+                            if (log.includes('ERROR') || log.includes('❌')) status = 'error';
+                            else if (log.includes('✅')) status = 'success';
+                            else if (log.includes('⚠️')) status = 'warning';
+                            appendLog(log, status);
+                        });
+                        lastLogCount = result.logs.length;
+                    }
+                    
+                    // Check if deployment completed
+                    if (!result.is_running) {
+                        resetDeployButtons();
+                        updateStatusBadge('Idle', false);
+                    }
+                }
             }
         } catch (e) {
             console.error('Status poll error:', e);
         }
-    }, 5000);
+    }
+    
+    // Auto-refresh every 5 seconds
+    setInterval(refreshBulkStatus, 5000);
+    
+    // Also refresh immediately on page load if deployment was running
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSitesForSelector();
+        refreshBulkStatus();
+    });
 </script>
 {% endblock %}

@@ -148,22 +148,22 @@
                             placeholder="Search domains...">
                     </div>
                     
-                    <!-- Status Filter -->
+                    <!-- Combined Status Filter -->
                     <select id="filter-status" 
                         class="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                        <option value="all">All Status</option>
-                        <option value="live">● Live</option>
-                        <option value="pending">○ Pending</option>
-                    </select>
-                    
-                    <!-- Local/Domain Filter -->
-                    <select id="filter-type" 
-                        class="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                        <option value="all">All Types</option>
-                        <option value="local-live">Local Live</option>
-                        <option value="local-pending">Local Pending</option>
-                        <option value="domain-live">Domain Live</option>
-                        <option value="domain-pending">Domain Pending</option>
+                        <option value="all">All Sites</option>
+                        <optgroup label="Local Status">
+                            <option value="local-live">🖥️ Local Live</option>
+                            <option value="local-pending">🖥️ Local Pending</option>
+                        </optgroup>
+                        <optgroup label="Domain Status">
+                            <option value="domain-live">🌐 Domain Live</option>
+                            <option value="domain-pending">🌐 Domain Pending</option>
+                        </optgroup>
+                        <optgroup label="Combined">
+                            <option value="fully-live">✅ Fully Live (Both)</option>
+                            <option value="not-started">⏳ Not Started (Neither)</option>
+                        </optgroup>
                     </select>
                     
                     <!-- Clear Filters -->
@@ -380,7 +380,6 @@ async function liveSiteDomain(siteId) {
 
 const searchInput = document.getElementById('search-sites');
 const filterStatus = document.getElementById('filter-status');
-const filterType = document.getElementById('filter-type');
 const filterInfo = document.getElementById('filter-info');
 const filteredCount = document.getElementById('filtered-count');
 const noResults = document.getElementById('no-results');
@@ -403,7 +402,6 @@ function debounce(func, wait) {
 function filterSites() {
     const searchTerm = searchInput.value.toLowerCase().trim();
     const statusFilter = filterStatus.value;
-    const typeFilter = filterType.value;
     
     const siteCards = document.querySelectorAll('.site-card');
     let visibleCount = 0;
@@ -419,28 +417,33 @@ function filterSites() {
             domain.includes(searchTerm) || 
             name.includes(searchTerm);
         
-        // Status filter
-        let matchesStatus = true;
-        if (statusFilter === 'live') {
-            matchesStatus = localStatus || domainStatus;
-        } else if (statusFilter === 'pending') {
-            matchesStatus = !localStatus && !domainStatus;
-        }
-        
-        // Type filter
-        let matchesType = true;
-        if (typeFilter === 'local-live') {
-            matchesType = localStatus;
-        } else if (typeFilter === 'local-pending') {
-            matchesType = !localStatus;
-        } else if (typeFilter === 'domain-live') {
-            matchesType = domainStatus;
-        } else if (typeFilter === 'domain-pending') {
-            matchesType = !domainStatus;
+        // Status filter (combined dropdown)
+        let matchesFilter = true;
+        switch(statusFilter) {
+            case 'local-live':
+                matchesFilter = localStatus;
+                break;
+            case 'local-pending':
+                matchesFilter = !localStatus;
+                break;
+            case 'domain-live':
+                matchesFilter = domainStatus;
+                break;
+            case 'domain-pending':
+                matchesFilter = !domainStatus;
+                break;
+            case 'fully-live':
+                matchesFilter = localStatus && domainStatus;
+                break;
+            case 'not-started':
+                matchesFilter = !localStatus && !domainStatus;
+                break;
+            default: // 'all'
+                matchesFilter = true;
         }
         
         // Show/hide card
-        const isVisible = matchesSearch && matchesStatus && matchesType;
+        const isVisible = matchesSearch && matchesFilter;
         card.style.display = isVisible ? '' : 'none';
         
         if (isVisible) visibleCount++;
@@ -448,7 +451,7 @@ function filterSites() {
     
     // Update UI
     const totalSites = siteCards.length;
-    const hasFilters = searchTerm || statusFilter !== 'all' || typeFilter !== 'all';
+    const hasFilters = searchTerm || statusFilter !== 'all';
     
     // Show/hide filter info bar
     if (hasFilters) {
@@ -470,14 +473,12 @@ function filterSites() {
 function clearFilters() {
     searchInput.value = '';
     filterStatus.value = 'all';
-    filterType.value = 'all';
     filterSites();
 }
 
 // Event listeners
 searchInput.addEventListener('input', debounce(filterSites, 200));
 filterStatus.addEventListener('change', filterSites);
-filterType.addEventListener('change', filterSites);
 
 // Keyboard shortcut: Ctrl/Cmd + F to focus search
 document.addEventListener('keydown', function(e) {

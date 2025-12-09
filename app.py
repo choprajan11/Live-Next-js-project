@@ -762,17 +762,42 @@ def api_bulk_stop():
 @app.route("/api/v1/bulk/status", methods=["GET"])
 @login_required
 def api_bulk_status():
-    """Get bulk deployment status"""
+    """Get bulk deployment status with progress and logs"""
     try:
         batch_id = request.args.get('batch_id')
         status = bulk_manager.get_status()
         progress = bulk_manager.get_progress(batch_id) if batch_id else {}
+        logs = bulk_manager.get_logs(batch_id) if batch_id else []
         
         return jsonify({
             "status": "success",
             "is_running": status['is_running'],
             "current_batch_id": status['current_batch_id'],
-            "progress": progress
+            "progress": progress,
+            "logs": logs
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/v1/bulk/stats", methods=["GET"])
+@login_required
+def api_bulk_stats():
+    """Get live stats for bulk deployment page"""
+    try:
+        pending_count = bulk_manager.get_pending_sites_count()
+        live_count = bulk_manager.get_live_sites_count()
+        total_count = pending_count + live_count
+        status = bulk_manager.get_status()
+        
+        return jsonify({
+            "status": "success",
+            "pending_count": pending_count,
+            "live_count": live_count,
+            "total_count": total_count,
+            "is_running": status['is_running'],
+            "current_batch_id": status['current_batch_id']
         }), 200
         
     except Exception as e:

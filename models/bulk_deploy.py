@@ -8,7 +8,7 @@ from typing import List, Dict, Tuple, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
-from models.site_live import SiteLiveManager
+from models.site_live import SiteLiveManager, port_assignment_lock
 from models.add_domain import DomainManager
 
 
@@ -181,71 +181,82 @@ class BulkDeploymentManager:
         Import sites from JSON data.
         Expected format: [{"domain": "example.com", "repo": "https://github.com/...", "name": "Site Name"}, ...]
         Returns: (imported_count, skipped_count, errors)
+        
+        Uses global port_assignment_lock to ensure thread-safe port assignment
+        during bulk imports to prevent duplicate ports.
         """
         imported = 0
         skipped = 0
         errors = []
         
-        # Load existing sites
-        existing_domains = set()
-        if os.path.exists(self.sites_json_path):
-            with open(self.sites_json_path, 'r') as f:
-                sites_data = json.load(f)
-                for site in sites_data.values():
-                    existing_domains.add(site.get('domain_name', '').lower())
-        
-        for site in json_data:
-            try:
-                domain = site.get('domain', '').lower().strip()
-                repo = site.get('repo', '').strip()
-                name = site.get('name', domain)
-                
-                if not domain or not repo:
-                    errors.append(f"Missing domain or repo: {site}")
-                    continue
-                
-                if domain in existing_domains:
-                    skipped += 1
-                    continue
-                
-                # Get next port
-                port = self.site_manager._get_next_port()
-                
-                # Create site entry
-                site_id = self.site_manager._generate_site_id()
-                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                site_info = {
-                    "domain_name": domain,
-                    "port": port,
-                    "status": "pending",
-                    "IP_URL": f"http://localhost:{port}",
-                    "created_at": current_time,
-                    "updated_at": current_time,
-                    "domain_status": False,
-                    "domain_provider": "namecheap",
-                    "IP_live_status": False,
-                    "repo": repo,
-                    "project_dir": "",
-                    "name": name
-                }
-                
-                # Load and update sites.json
-                sites_data = {}
-                if os.path.exists(self.sites_json_path):
-                    with open(self.sites_json_path, 'r') as f:
-                        sites_data = json.load(f)
-                
-                sites_data[site_id] = site_info
-                
+        # Use the port lock for the entire import operation to prevent race conditions
+        with port_assignment_lock:
+            # Load existing sites
+            existing_domains = set()
+            sites_data = {}
+            if os.path.exists(self.sites_json_path):
+                with open(self.sites_json_path, 'r') as f:
+                    sites_data = json.load(f)
+                    for site in sites_data.values():
+                        existing_domains.add(site.get('domain_name', '').lower())
+            
+            # Get base port (max of all existing ports)
+            if sites_data:
+                existing_ports = [int(site.get('port', 0)) for site in sites_data.values()]
+                next_port = max(existing_ports) + 1 if existing_ports else int(os.getenv('DEFAULT_PORT', 3000))
+            else:
+                next_port = int(os.getenv('DEFAULT_PORT', 3000))
+            
+            server_ip = os.getenv('SERVER_IP', '127.0.0.1')
+            
+            for site in json_data:
+                try:
+                    domain = site.get('domain', '').lower().strip()
+                    repo = site.get('repo', '').strip()
+                    name = site.get('name', domain)
+                    
+                    if not domain or not repo:
+                        errors.append(f"Missing domain or repo: {site}")
+                        continue
+                    
+                    if domain in existing_domains:
+                        skipped += 1
+                        continue
+                    
+                    # Assign port and increment (within lock)
+                    port = next_port
+                    next_port += 1
+                    
+                    # Create site entry
+                    site_id = self.site_manager._generate_site_id()
+                    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    site_info = {
+                        "domain_name": domain,
+                        "port": port,
+                        "status": "pending",
+                        "IP_URL": f"http://{server_ip}:{port}",
+                        "created_at": current_time,
+                        "updated_at": current_time,
+                        "domain_status": False,
+                        "domain_provider": "namecheap",
+                        "IP_live_status": False,
+                        "repo": repo,
+                        "project_dir": "",
+                        "name": name
+                    }
+                    
+                    sites_data[site_id] = site_info
+                    existing_domains.add(domain)
+                    imported += 1
+                    
+                except Exception as e:
+                    errors.append(f"Error importing {site}: {str(e)}")
+            
+            # Save all changes at once (more efficient and atomic)
+            if imported > 0:
                 with open(self.sites_json_path, 'w') as f:
                     json.dump(sites_data, f, indent=4)
-                
-                existing_domains.add(domain)
-                imported += 1
-                
-            except Exception as e:
-                errors.append(f"Error importing {site}: {str(e)}")
         
         return imported, skipped, errors
     
